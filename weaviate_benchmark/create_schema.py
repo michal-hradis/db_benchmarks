@@ -39,6 +39,7 @@ client.collections.create(
         wvc.Property(name="subtitle",         data_type=wvc.DataType.TEXT),
         wvc.Property(name="partNumber",       data_type=wvc.DataType.INT),
         wvc.Property(name="partName",         data_type=wvc.DataType.TEXT),
+        wvc.Property(name="yearIssued",       data_type=wvc.DataType.INT),
         wvc.Property(name="dateIssued",       data_type=wvc.DataType.DATE),
         wvc.Property(name="author",           data_type=wvc.DataType.TEXT_ARRAY),
         wvc.Property(name="publisher",        data_type=wvc.DataType.TEXT),

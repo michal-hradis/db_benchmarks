@@ -63,19 +63,19 @@ def main():
 
     nn_batch_size = 16
 
-    with client.batch.fixed_size(batch_size=512, concurrent_requests=4) as batch:
+    with client.batch.fixed_size(batch_size=1024, concurrent_requests=6) as batch:
         for file in tqdm(glob.glob(args.source_dir + "/*.txt")[1700:]):
             with open(file, 'r', encoding='utf-8') as f:
                 base_name = file.split("/")[-1]
                 parsed_filename = parse_filename(base_name)
                 #print(f"Parsed filename: {parsed_filename}")
                 if parsed_filename is None:
-                    print(f"Filename {base_name} does not match the expected format.")
+                    #print(f"Filename {base_name} does not match the expected format.")
                     continue
 
                 lines = f.readlines()
                 lines = [' '.join(line.strip().split(",")[4:]) for line in lines]
-                lines = [line for line in lines if len(line) > 0]
+                lines = [line for line in lines if len(line) > 20]
 
                 if not lines:
                     continue
@@ -86,8 +86,9 @@ def main():
                         "subtitle": "",
                         "partNumber": 1,
                         "partName": "",
-                        "dateIssued": parsed_filename["year"],
-                        "author": parsed_filename["last_part"],
+                        "dateIssued": parsed_filename["date"] + "T16:00:00+00:00",
+                        "yearIssued": int(parsed_filename["year"]),
+                        "author": [parsed_filename["last_part"]],
                         "publisher": "",
                         "language": ["cs"],
                         "description": "",
@@ -102,6 +103,7 @@ def main():
 
                 while len(lines) > 0:
                     lines_batch = lines[:nn_batch_size]
+                    lines = lines[nn_batch_size:]
                     batch_dict = tokenizer(lines_batch, max_length=128, padding=True, truncation=True, return_tensors='pt')
                     batch_dict = {key: value.to(device) for key, value in batch_dict.items()}
                     with torch.no_grad():
