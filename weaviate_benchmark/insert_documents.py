@@ -66,10 +66,11 @@ def main():
     with client.batch.fixed_size(batch_size=512, concurrent_requests=4) as batch:
         for file in tqdm(glob.glob(args.source_dir + "/*.txt")[1700:]):
             with open(file, 'r', encoding='utf-8') as f:
-                parsed_filename = parse_filename(file)
+                base_name = file.split("/")[-1]
+                parsed_filename = parse_filename(base_name)
                 #print(f"Parsed filename: {parsed_filename}")
                 if parsed_filename is None:
-                    print(f"Filename {file} does not match the expected format.")
+                    print(f"Filename {base_name} does not match the expected format.")
                     continue
 
                 lines = f.readlines()
