@@ -1,0 +1,3 @@
+weaviate-client
+sentence_transformers
+numpy
