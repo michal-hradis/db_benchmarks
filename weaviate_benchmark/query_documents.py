@@ -95,10 +95,8 @@ def main():
 
         # 5) Run the vector search
         t1 = time()
-        result    = chunk_col.query.near_vector(
-            near_vector = q_vector,
-            limit       = 1024
-        )
+        result = client.query.get("TextChunk", ["text"]).with_near_vector({"vector": q_vector}).with_where(
+            {"operator": "And", "operands": filters}).with_limit(args.limit).do()
 
         # 6) Print the top hits
         print(f"\nTop {len(result.objects)} results for “{query}”. Retrieved in {time() - t1:.2f} seconds:")
