@@ -76,9 +76,12 @@ def main():
             filters.append(Filter.by_property("document.title").contains(" ".join(args.title_words)))
 
         # Combine filters with AND logic
-        combined_filter = filters[0]
-        for f in filters[1:]:
-            combined_filter = combined_filter.and_(f)
+        if filters:
+            combined_filter = filters[0]
+            for f in filters[1:]:
+                combined_filter = combined_filter.and_(f)
+        else:
+            combined_filter = None
 
         # Perform the vector search with filtering
         t1 = time()
