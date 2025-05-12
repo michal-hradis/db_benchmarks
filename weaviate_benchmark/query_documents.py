@@ -61,42 +61,32 @@ def main():
         outputs  = model(**inputs)
         q_vector = outputs.last_hidden_state[:,0].cpu().detach().tolist()[0]
 
+        # Build filters based on input arguments
         filters = []
-        if args.min_year:
-            filters.append({
-                "path": ["document", "yearIssued"],
-                "operator": "GreaterThan",
-                "valueInt": args.min_year
-            })
-        if args.max_year:
-            filters.append({
-                "path": ["document", "yearIssued"],
-                "operator": "LessThan",
-                "valueInt": args.max_year
-            })
-        if args.genre:
-            filters.append({
-                "path": ["document", "genre"],
-                "operator": "Equal",
-                "valueText": args.genre
-            })
-        if args.author:
-            filters.append({
-                "path": ["document", "author"],
-                "operator": "Equal",
-                "valueText": args.author
-            })
-        if args.title_words:
-            filters.append({
-                "path": ["document", "title"],
-                "operator": "Contains",
-                "valueText": " ".join(args.title_words)
-            })
 
-        # 5) Run the vector search
+        if args.min_year:
+            filters.append(Filter.by_property("document.yearIssued").greater_than(args.min_year))
+        if args.max_year:
+            filters.append(Filter.by_property("document.yearIssued").less_than(args.max_year))
+        if args.genre:
+            filters.append(Filter.by_property("document.genre").equal(args.genre))
+        if args.author:
+            filters.append(Filter.by_property("document.author").equal(args.author))
+        if args.title_words:
+            filters.append(Filter.by_property("document.title").contains(" ".join(args.title_words)))
+
+        # Combine filters with AND logic
+        combined_filter = filters[0]
+        for f in filters[1:]:
+            combined_filter = combined_filter.and_(f)
+
+        # Perform the vector search with filtering
         t1 = time()
-        result = client.query.get("TextChunk", ["text"]).with_near_vector({"vector": q_vector}).with_where(
-            {"operator": "And", "operands": filters}).with_limit(args.limit).do()
+        result = chunk_col.query.near_vector(
+            near_vector=q_vector,
+            with_where=combined_filter,  # Apply the combined filter
+            limit=args.limit
+        )
 
         # 6) Print the top hits
         print(f"\nTop {len(result.objects)} results for “{query}”. Retrieved in {time() - t1:.2f} seconds:")
