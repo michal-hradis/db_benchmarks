@@ -18,7 +18,7 @@ def parse_args():
 def create_schema(client: WeaviateClient, delete_old: bool) -> None:
     if delete_old:
         # Optional: clean slate
-        for cls in ("Semant Books", "Chunks"):
+        for cls in ("Books", "Chunks"):
             try:
                 client.collections.delete(cls)
             except Exception as e:
@@ -26,7 +26,7 @@ def create_schema(client: WeaviateClient, delete_old: bool) -> None:
 
     # 4) Create Document (with a reverse reference slot for collections)
     client.collections.create(
-        name="Semant Books",
+        name="Books",
         vector_index_config=wvc.Configure.VectorIndex.hnsw(),
         properties=[
             wvc.Property(name="title", data_type=wvc.DataType.TEXT),
@@ -61,14 +61,14 @@ def create_schema(client: WeaviateClient, delete_old: bool) -> None:
         references=[
             wvc.ReferenceProperty(
                 name="document",
-                target_collection="Semant Books",
-                cardinality="*"
+                target_collection="Books",
+                cardinality="1"
             )
         ]
     )
 
 def insert_documents(client: WeaviateClient, source_dir: str) -> None:
-    doc_col = client.collections.get("Semant Books")
+    doc_col = client.collections.get("Books")
     json_files = glob.glob(os.path.join(source_dir, "*.doc.json"))
     for json_file in tqdm(json_files):
         with open(json_file, 'r', encoding='utf-8') as f:
