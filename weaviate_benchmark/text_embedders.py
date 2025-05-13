@@ -23,7 +23,7 @@ class EmbeddingSeznam:
             outputs = self.model(**inputs)
             return outputs.last_hidden_state[:, 0].cpu().detach().numpy()
 
-    def embed_query(self, query: str) -> list[float]:
+    def embed_query(self, query: str) -> np.ndarray:
         return self.embed_documents([query])[0]
 
 
@@ -36,11 +36,11 @@ class EmbeddingGemma:
         self.instruction = 'Given a web search query, retrieve relevant passages that answer the query.'
         self.prompt = f'<instruct>{self.instruction}\n<query>'
 
-    def embed_documents(self, texts: [str]) -> list[list[float]]:
+    def embed_documents(self, texts: [str]) -> np.ndarray:
         # Compute the query and document embeddings
         document_embeddings = self.model.encode(texts)
         return document_embeddings
 
-    def embed_query(self, query) -> list[float]:
+    def embed_query(self, query) -> np.ndarray:
         query_embeddings = self.model.encode([query], prompt=self.prompt)
         return query_embeddings[0]
