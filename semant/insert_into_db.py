@@ -126,3 +126,6 @@ def main():
     # Insert documents and chunks
     insert_documents(client, args.source_dir)
     insert_chunks(client, args.source_dir)
+
+if __name__ == "__main__":
+    main()
