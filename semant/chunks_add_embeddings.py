@@ -27,13 +27,18 @@ def main():
     embedder = EmbeddingGemma()
 
     # Process each file
-    for jsonl_file in tqdm(jsonl_files):
+    for jsonl_file in tqdm(jsonl_files, position=0, desc="Processing files"):
+        target_file = os.path.join(args.target_dir, os.path.basename(jsonl_file))
+        if os.path.exists(target_file):
+            tqdm.write(f"Target file {target_file} already exists, skipping.")
+            continue
+
         with open(jsonl_file, 'r') as f:
             lines = f.readlines()
 
         chunks = []
         # Process in batches
-        for i in tqdm(range(0, len(lines), args.batch_size)):
+        for i in tqdm(range(0, len(lines), args.batch_size), leave=False, position=1, desc="Processing chunks"):
             batch_lines = lines[i:i + args.batch_size]
             batch_lines = [json.loads(line) for line in batch_lines]
             texts = [chunk["text"] for chunk in batch_lines]
@@ -43,7 +48,6 @@ def main():
                 chunks.append(line)
 
         # Write to target file
-        target_file = os.path.join(args.target_dir, os.path.basename(jsonl_file))
         with open(target_file, 'w', encoding='utf-8') as f:
             for chunk in chunks:
                 f.write(json.dumps(chunk) + "\n")
