@@ -35,6 +35,10 @@ def main():
     if not os.path.exists(args.page_xml_dir):
         os.mkdir(args.page_xml_dir)
 
+    if os.path.exists(args.output_chunk_file):
+        print("Output chunk file already exists, exiting.")
+        return
+
     # unzip PAGE XML files
     zip_file_path = list(data["page_to_xml_mapping"].values())[0]
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
