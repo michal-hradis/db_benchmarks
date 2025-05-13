@@ -7,6 +7,7 @@ from weaviate.connect import ConnectionParams
 import glob
 from tqdm import tqdm
 import re
+from text_embedders import EmbeddingSeznam, EmbeddingGemma
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Weaviate Benchmark Inserts Document embeddings")
@@ -56,12 +57,8 @@ def main():
     print("Document collection size:", doc_col.aggregate.over_all(total_count=True).total_count)
     print("TextChunk collection size:", chunk_col.aggregate.over_all(total_count=True).total_count)
 
-    model_name = "Seznam/retromae-small-cs"  # link name
-    tokenizer = AutoTokenizer.from_pretrained(model_name)
-    device = "cuda" if torch.cuda.is_available() else "cpu"
-    model = AutoModel.from_pretrained(model_name).to(device)
-
-    nn_batch_size = 16
+    embedder = EmbeddingGemma()
+    nn_batch_size = 2
 
     with client.batch.fixed_size(batch_size=1024, concurrent_requests=6) as batch:
         for file in tqdm(glob.glob(args.source_dir + "/*.txt")[1700:]):
@@ -75,7 +72,7 @@ def main():
 
                 lines = f.readlines()
                 lines = [' '.join(line.strip().split(",")[4:]) for line in lines]
-                lines = [line for line in lines if len(line) > 20]
+                lines = [line for line in lines if len(line) > 30]
 
                 if not lines:
                     continue
@@ -104,11 +101,7 @@ def main():
                 while len(lines) > 0:
                     lines_batch = lines[:nn_batch_size]
                     lines = lines[nn_batch_size:]
-                    batch_dict = tokenizer(lines_batch, max_length=128, padding=True, truncation=True, return_tensors='pt')
-                    batch_dict = {key: value.to(device) for key, value in batch_dict.items()}
-                    with torch.no_grad():
-                        outputs = model(**batch_dict)
-                    embeddings = outputs.last_hidden_state[:, 0].cpu()
+                    embeddings = embedder.embed_documents(lines_batch)
 
                     for text, emb in zip(lines_batch, embeddings):
                         batch.add_object(
@@ -116,7 +109,7 @@ def main():
                             properties={
                                 "text": text,
                             },
-                            vector=emb.numpy().tolist(),
+                            vector=emb.tolist(),
                             references = {
                                 "document": doc_id
                             }
