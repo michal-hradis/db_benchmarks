@@ -1,4 +1,5 @@
 import torch
+import numpy as np
 from transformers import AutoModel, AutoTokenizer
 from sentence_transformers import SentenceTransformer
 
@@ -10,7 +11,7 @@ class EmbeddingSeznam:
         self.device = "cuda" if torch.cuda.is_available() else "cpu"
         self.model = self.model.to(self.device)
 
-    def embed(self, texts: [str]) -> list[list[float]]:
+    def embed_documents(self, texts: [str]) -> np.ndarray:
         with torch.no_grad():
             inputs = self.tokenizer(
                 texts,
@@ -20,7 +21,10 @@ class EmbeddingSeznam:
                 return_tensors="pt"
             ).to(self.device)
             outputs = self.model(**inputs)
-            return outputs.last_hidden_state[:, 0].cpu().detach()
+            return outputs.last_hidden_state[:, 0].cpu().detach().numpy()
+
+    def embed_query(self, query: str) -> list[float]:
+        return self.embed_documents([query])[0]
 
 
 class EmbeddingGemma:
