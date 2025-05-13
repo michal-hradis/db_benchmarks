@@ -4,7 +4,7 @@ do
   BASENAME=$(basename "$FILE")
   CHUNK_FILE="${BASENAME%.*}.chunk.jsonl"
   DOC_FILE="${BASENAME%.*}.doc.json"
-  if [ -f "$CHUNK_FILE" ]; then
+  if [ -f "${OUTPUT}/$CHUNK_FILE" ]; then
     echo "Chunk file $CHUNK_FILE already exists, skipping."
     continue
   fi
