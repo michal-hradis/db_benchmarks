@@ -55,8 +55,9 @@ def create_schema(client: WeaviateClient, delete_old: bool) -> None:
         properties=[
             wvc.Property(name="text", data_type=wvc.DataType.TEXT),
             wvc.Property(name="start_page_id", data_type=wvc.DataType.TEXT),
-            wvc.Property(name="from_page", data_type=wvc.DataType.TEXT),
-            wvc.Property(name="to_page", data_type=wvc.DataType.TEXT),
+            wvc.Property(name="from_page", data_type=wvc.DataType.INT),
+            wvc.Property(name="to_page", data_type=wvc.DataType.INT),
+            wvc.Property(name="language", data_type=wvc.DataType.TEXT),
         ],
         references=[
             wvc.ReferenceProperty(
@@ -75,9 +76,11 @@ def insert_documents(client: WeaviateClient, source_dir: str) -> None:
             data = json.load(f)
             uuid = data["id"]
             del data["id"]
+            data["yearIssued"] = int(data["dateIssued"].split('-')[0])
+            data["dateIssued"] = data["dateIssued"].replace(' ', 'T') + "+00:00"
             doc_col.data.insert(
+                uuid=uuid,
                 properties=data,
-                uuid=uuid
             )
 
 def insert_chunks(client: WeaviateClient, source_dir: str) -> None:
@@ -89,15 +92,14 @@ def insert_chunks(client: WeaviateClient, source_dir: str) -> None:
                 lines = f.readlines()
                 for line in lines:
                     data = json.loads(line)
-                    uuid = data["id"]
-                    del data["id"]
                     document_uuid = data["document"]
                     del data["document"]
                     vector = data["vector"]
+                    del data["vector"]
+                    
 
                     batch.add_object(
                         collection="Chunks",
-                        uuid=uuid,
                         properties=data,
                         vector=vector,
                         references={
