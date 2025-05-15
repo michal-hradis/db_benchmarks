@@ -3,6 +3,7 @@ import os
 import json
 from pero_ocr.core.layout import PageLayout
 import zipfile
+from glob import glob
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Load document json files with metadata and pages, load PAGE XML files and prepare jsonl files with text chunks and document metadata.")
@@ -44,8 +45,8 @@ def main():
     with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
         zip_ref.extractall(args.page_xml_dir)
 
-    min_chunk_chars = 512 + 256
-    max_chunk_chars = 1024
+    min_chunk_chars = 768
+    max_chunk_chars = 1024 + 128
     chunks = []
 
     save_jsonl(data["elements"][0], args.output_doc_file)
@@ -60,21 +61,47 @@ def main():
         for paragraph in layout.regions:
             #confidences = ' '.join([str(line.transcription_confidence) for line in paragraph.lines])
             #print(confidences)
-            paragraph_text = '\n'.join([line.transcription for line in paragraph.lines if line.transcription and line.transcription_confidence > 0.3])
-            if len(paragraph_text) > 10:
-                if not chunks:
-                    chunks.append({"text": paragraph_text, "start_page_id": page["id"], "from_page": page["pageIndex"]})
+            if not chunks:
+                chunks.append({"text": "", "start_page_id": page["id"], "from_page": page["pageIndex"], "order": len(chunks)})
 
-                if len(chunks[-1]["text"]) < min_chunk_chars:
-                    chunks[-1]["text"] = f'{chunks[-1]["text"]}\n\n{paragraph_text}'
-                elif len(chunks[-1]["text"]) + len(paragraph_text) > max_chunk_chars:
+            paragraph_lines = [line for line in paragraph.lines if line.transcription and line.transcription_confidence > 0.6]
+            while paragraph_lines:
+                paragraph_text = '\n'.join([line.transcription for line in paragraph_lines])
+                if len(paragraph_text) <= 10:
+                    break
+
+                if len(chunks[-1]["text"]) + len(paragraph_text) > max_chunk_chars:
                     chunks[-1]["to_page"] = page["pageIndex"]
-                    chunks.append({"text": paragraph_text, "start_page_id": page["id"], "from_page": page["pageIndex"]})
+                    chunks[-1]["end_paragraph"] = False
+                    chunks[-1]["text"] = chunks[-1]["text"] + '\n'
+                    while len(chunks[-1]["text"]) < min_chunk_chars:
+                        chunks[-1]["text"] = chunks[-1]["text"] + f'\n{paragraph_lines[0].transcription}'
+                        paragraph_lines = paragraph_lines[1:]
+                    chunks.append({"text": "", "start_page_id": page["id"], "from_page": page["pageIndex"], "order": len(chunks)})
+
+                elif len(chunks[-1]["text"]) + len(paragraph_text) > min_chunk_chars:
+                    chunks[-1]["to_page"] = page["pageIndex"]
+                    chunks[-1]["end_paragraph"] = True
+                    chunks[-1]["text"] = f'{chunks[-1]["text"]}\n\n{paragraph_text}'
+                    chunks.append({"text": "", "start_page_id": page["id"], "from_page": page["pageIndex"], "order": len(chunks)})
+                    paragraph_lines = []
                 else:
                     chunks[-1]["text"] = f'{chunks[-1]["text"]}\n\n{paragraph_text}'
+                    paragraph_lines = []
+
+    # delete the temporary extracted files
+    for file_name in glob(os.path.join(args.page_xml_dir, "*.xml")):
+        os.remove(file_name)
 
     if len(chunks) > 0:
         chunks[-1]["to_page"] = page["pageIndex"]
+        chunks[-1]["end_paragraph"] = True
+
+    if not chunks[-1]["text"]:
+        chunks.pop()
+        
+    for chunk in chunks:
+        chunk["text"] = chunk["text"].strip() 
 
     if len(chunks) > 0:
         chunk_lengths = [len(chunk["text"]) for chunk in chunks]
@@ -92,7 +119,6 @@ def main():
         for i, chunk in enumerate(chunks):
             chunk["document"] = data["elements"][0]["id"]
             f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
-
 
 
 if __name__ == "__main__":
