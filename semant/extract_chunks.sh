@@ -1,5 +1,6 @@
-OUTPUT=./chunks
-for FILE in /mnt/matylda1/ikohut/data/smart_digiline/metakat/output_samples.2025-05-13/monograph/*.json
+OUTPUT=/mnt/zfs1/data2/2025-05-11_db_benchmarks/lidovky/chunks
+#/mnt/matylda1/ikohut/data/smart_digiline/metakat/output_samples.2025-05-13/monograph/*.json
+for FILE in ./json/*.json
 do
   BASENAME=$(basename "$FILE")
   CHUNK_FILE="${BASENAME%.*}.chunk.jsonl"
