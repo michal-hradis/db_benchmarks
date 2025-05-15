@@ -248,16 +248,20 @@ def main(
                 logging.info(
                     f"Skipping {input_file} as {output_file} already exists.")
             continue
-        output_file.touch(exist_ok=True)
-        process_file(
-            input_file, output_file, model, tokenizer, device,
-            overlap=overlap, max_batch_size=max_batch_size,
-            max_input_length=max_input_length,
-            entities_only=True
-        )
-
-    processing_progress.n = number_of_files
-    processing_progress.refresh()
+        try:
+            output_file.touch(exist_ok=True)
+            process_file(
+                input_file, output_file, model, tokenizer, device,
+                overlap=overlap, max_batch_size=max_batch_size,
+                max_input_length=max_input_length,
+                entities_only=True
+            )
+        except (Exception, KeyboardInterrupt) as e:
+            with logging_redirect_tqdm():
+                logging.error(
+                    f"Error processing {input_file}: removing {output_file} and fail.")
+            output_file.unlink(missing_ok=True)
+            raise e
 
 
 if __name__ == "__main__":
