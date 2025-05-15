@@ -244,6 +244,9 @@ def main(
         output_file = output_dir / input_file.relative_to(input_dir)
         output_file.parent.mkdir(parents=True, exist_ok=True)
         if output_file.exists():
+            with logging_redirect_tqdm():
+                logging.info(
+                    f"Skipping {input_file} as {output_file} already exists.")
             continue
         output_file.touch(exist_ok=True)
         process_file(
