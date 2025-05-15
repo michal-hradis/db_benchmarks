@@ -220,6 +220,19 @@ def get_all_files(input_dir: Path) -> list[Path]:
     return list(input_dir.rglob("*.jsonl"))
 
 
+def compile_model_fn(model: AutoModelForTokenClassification, max_input_length: int, device: torch.device) -> AutoModelForTokenClassification:
+    model = torch.compile(model)
+    example_input = {
+        'input_ids': torch.ones(
+            (1, max_input_length), dtype=torch.int64, device=device),
+        'attention_mask': torch.ones(
+            (1, max_input_length), dtype=torch.int64, device=device)
+    }
+    with torch.inference_mode():
+        eg_out = model(**example_input)
+    return model
+
+
 def main(
     model: str,
     device: torch.device,
@@ -228,6 +241,7 @@ def main(
     overlap: int,
     max_batch_size: int,
     max_input_length: int,
+    compile_model: bool,
 ):
     device = torch.device(device)
     logging.info(f"Loading model {model} on device {device}")
@@ -236,6 +250,13 @@ def main(
     model = AutoModelForTokenClassification.from_pretrained(
         model).to(device).eval()
     logging.info(f"Loaded model {type(model).__name__}")
+    if compile_model:
+        logging.info("Compiling model.")
+        torch.set_float32_matmul_precision('high')
+        model = compile_model_fn(
+            model, max_input_length=max_input_length, device=device
+        )
+        logging.info("Model compiled successfully.")
 
     all_files = list(tqdm.tqdm(input_dir.rglob("*.jsonl"),
                      desc="Loading files", total=len(get_all_files(input_dir))))
@@ -281,6 +302,8 @@ if __name__ == "__main__":
                         help="Maximum batch size for inference. Only applicable if single text input is larger than the max_input_length. Different texts are always processed in different batches.")
     parser.add_argument("--max_input_length", type=int, default=512,
                         help="Maximum input length for the model.")
+    parser.add_argument("--compile-model", action="store_true",
+                        help="Whether to compile the model using torch.compile.")
     args = parser.parse_args()
 
     handler = colorlog.StreamHandler()
@@ -288,12 +311,22 @@ if __name__ == "__main__":
         '%(red)s%(levelname)s:%(name)s:%(message)s'))
     logging.basicConfig(level=logging.INFO, handlers=[handler])
 
-    main(
-        model=args.model,
-        device=args.device,
-        input_dir=args.source_dir,
-        output_dir=args.target_dir,
-        overlap=args.overlap,
-        max_batch_size=args.max_batch_size,
-        max_input_length=args.max_input_length
-    )
+    try:
+        main(
+            model=args.model,
+            device=args.device,
+            input_dir=args.source_dir,
+            output_dir=args.target_dir,
+            overlap=args.overlap,
+            max_batch_size=args.max_batch_size,
+            max_input_length=args.max_input_length,
+            compile_model=args.compile_model,
+        )
+    except KeyboardInterrupt:
+        logging.info("Process interrupted by user.")
+    except Exception as e:
+        logging.error(f"An error occurred: {e}")
+        raise e
+    finally:
+        logging.info("Process completed.")
+        logging.shutdown()
