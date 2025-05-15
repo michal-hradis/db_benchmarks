@@ -38,8 +38,8 @@ def main():
     if not client.is_ready():
         print("Weaviate is not ready.")
         return
-    chunk_col = client.collections.get("TextChunk")
-    doc_col = client.collections.get("Document")
+    chunk_col = client.collections.get("Chunks")
+    doc_col = client.collections.get("Books")
     print("Document collection size:", doc_col.aggregate.over_all(total_count=True).total_count)
     print("TextChunk collection size:", chunk_col.aggregate.over_all(total_count=True).total_count)
 
@@ -52,7 +52,6 @@ def main():
         if not query:
             print("No query given, exiting.")
             return
-
 
         # 3) Embed the query
         q_vector = embedder.embed_query(query)
@@ -83,8 +82,8 @@ def main():
         t1 = time()
         result = chunk_col.query.hybrid(
             query=query,
-            alpha=1,
-            vector=q_vector.to_list(),
+            alpha=0.6,
+            vector=q_vector.tolist(),
             limit=args.limit,
             filters=combined_filter
         )
@@ -92,9 +91,11 @@ def main():
         # 6) Print the top hits
         print(f"\nTop {len(result.objects)} results for “{query}”. Retrieved in {time() - t1:.2f} seconds:")
         for idx, obj in enumerate(result.objects, start=1):
-            text = obj.properties.get("text", "<no text>")
-            print(f"  {idx}) {text}")
-        print("")
+            text = obj.properties.get("text", "<no text>").replace("\n", " ")
+            print(f"============= {idx}) ==================================")
+            print(text)
+            print("========================================================")
+            print()
 
 if __name__ == "__main__":
     main()
