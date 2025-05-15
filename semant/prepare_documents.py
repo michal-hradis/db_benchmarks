@@ -4,6 +4,7 @@ import json
 from pero_ocr.core.layout import PageLayout
 import zipfile
 from glob import glob
+from uuid import uuid4
 
 def parse_args():
     parser = argparse.ArgumentParser(description="Load document json files with metadata and pages, load PAGE XML files and prepare jsonl files with text chunks and document metadata.")
@@ -11,6 +12,7 @@ def parse_args():
     parser.add_argument("--output-chunk-file", required=True, type=str, help="Output jsonl file.")
     parser.add_argument("--output-doc-file", required=True, type=str, help="Output json file with metadata.")
     parser.add_argument("--page-xml-dir", required=True, type=str, help="Directory with PAGE XML files.")
+    parser.add_argument("--line-confidence", default=0.6, type=float, help="Minimum line confidence to include in the chunk.")
     return parser.parse_args()
 
 def save_jsonl(data, filename):
@@ -64,7 +66,7 @@ def main():
             if not chunks:
                 chunks.append({"text": "", "start_page_id": page["id"], "from_page": page["pageIndex"], "order": len(chunks)})
 
-            paragraph_lines = [line for line in paragraph.lines if line.transcription and line.transcription_confidence > 0.6]
+            paragraph_lines = [line for line in paragraph.lines if line.transcription and line.transcription_confidence > args.line_confidence]
             while paragraph_lines:
                 paragraph_text = '\n'.join([line.transcription for line in paragraph_lines])
                 if len(paragraph_text) <= 10:
@@ -101,6 +103,7 @@ def main():
         chunks.pop()
         
     for chunk in chunks:
+        chunk["id"] = str(uuid4())
         chunk["text"] = chunk["text"].strip() 
 
     if len(chunks) > 0:
