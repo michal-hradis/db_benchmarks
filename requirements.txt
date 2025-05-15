@@ -1,3 +1,10 @@
 weaviate-client
 sentence_transformers
 numpy
+tqdm
+transformers
+colorlog
+tqdm
+torch
+torchvision
+torchaudio
