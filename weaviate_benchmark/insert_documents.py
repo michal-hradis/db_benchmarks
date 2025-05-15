@@ -61,7 +61,7 @@ def main():
     nn_batch_size = 2
 
     with client.batch.fixed_size(batch_size=16, concurrent_requests=2) as batch:
-        for file in tqdm(glob.glob(args.source_dir + "/*.txt")[1700:]):
+        for file in tqdm(glob.glob(args.source_dir + "/*.txt")):
             with open(file, 'r', encoding='utf-8') as f:
                 base_name = file.split("/")[-1]
                 parsed_filename = parse_filename(base_name)
