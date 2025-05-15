@@ -38,16 +38,27 @@ def pre_process_text(input: str, tokenizer: AutoTokenizer, device: torch.device,
     inputs = tokenizer([input], return_tensors="pt",
                        is_split_into_words=False).to(device)
     # Tokenize the input text into chunks with overlap
-    input_ids = inputs['input_ids'][0, 1:-1]
-    bos = inputs['input_ids'][0, :1]
-    eos = inputs['input_ids'][0, -1:]
+    input_ids = inputs['input_ids'][0, 1:-1]  # remove [SOS] and [EOS]
+    bos = inputs['input_ids'][0, :1]  # [SOS]
+    eos = inputs['input_ids'][0, -1:]  # [EOS]
 
     chunks = []
-    for i in range(0, len(input_ids), (model_max_length - overlap - 2)):
-        chunk = torch.cat([bos, input_ids[i:i + (model_max_length - 2)], eos])
-        padding = model_max_length - len(chunk)
-        chunk = torch.cat([chunk, torch.tensor(
-            [tokenizer.pad_token_id] * padding, device=device, dtype=input_ids.dtype)])
+
+    # Go through the input_ids in steps of (model_max_length - overlap - 2) [Context length with removed [SOS] and [EOS] and overlapping tokens]
+    for sequence_start_index in range(0, len(input_ids), (model_max_length - overlap - 2)):
+        if sequence_start_index + (model_max_length - 2) > len(input_ids):
+            # [SOS] + text + [EOS]
+            chunk = torch.cat([bos, input_ids[sequence_start_index:], eos])
+            # If the chunk is smaller than model_max_length, pad it
+            padding = model_max_length - len(chunk)
+            # padded chunk
+            chunk = torch.cat([chunk, torch.tensor(
+                [tokenizer.pad_token_id] * padding, device=device, dtype=input_ids.dtype)])
+            chunks.append(chunk)
+            break  # No need to process further
+
+        chunk = torch.cat(
+            [bos, input_ids[sequence_start_index:sequence_start_index + (model_max_length - 2)], eos])
         chunks.append(chunk)
 
     # Create the new inputs_trunc with the split chunks
