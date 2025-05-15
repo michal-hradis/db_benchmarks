@@ -292,7 +292,7 @@ if __name__ == "__main__":
                         help="Path to input directory containing JSONL files.")
     parser.add_argument("-t", "--target-dir", type=Path, required=True,
                         help="Path to output directory that will contain output JSONL files.")
-    parser.add_argument("--model", type=str, default='stulcrad/CNEC1_1_xlm-roberta-large',
+    parser.add_argument("--model", type=str, default='stulcrad/CNEC2_0_Supertypes_xlm-roberta-large',
                         help="HuggingFace model name or path.")
     parser.add_argument("--device", type=torch.device, default=torch.device("cuda:0"),
                         help="Device to use (e.g., 'cuda', 'cuda:0' or 'cpu').")
