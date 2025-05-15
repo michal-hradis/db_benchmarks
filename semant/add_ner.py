@@ -188,7 +188,7 @@ def process_file(
 ):
     objects = [json.loads(line)
                for line in file_path.open("r", encoding="utf-8")]
-    for i, obj in enumerate(objects):
+    for i, obj in enumerate(tqdm.tqdm(objects, desc=f"Processing {file_path.name}", position=1, leave=False)):
         text = obj["text"]
         with logging_redirect_tqdm():
             logging.debug(
@@ -241,7 +241,7 @@ def main(
                      desc="Loading files", total=len(get_all_files(input_dir))))
     number_of_files = len(all_files)
     processing_progress = tqdm.tqdm(
-        desc="Processing files", total=number_of_files)
+        desc="Processing files", total=number_of_files, position=0, leave=True)
 
     while len((not_yet_processed := get_not_yet_processed(input_dir, output_dir))) > 0:
         number_of_files_to_process = len(not_yet_processed)
