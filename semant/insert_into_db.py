@@ -29,6 +29,7 @@ def create_schema(client: WeaviateClient, delete_old: bool) -> None:
         name="Books",
         vector_index_config=wvc.Configure.VectorIndex.hnsw(),
         properties=[
+            wvc.Property(name="library", data_type=wvc.DataType.TEXT),
             wvc.Property(name="title", data_type=wvc.DataType.TEXT),
             wvc.Property(name="subTitle", data_type=wvc.DataType.TEXT),
             wvc.Property(name="partNumber", data_type=wvc.DataType.INT),
@@ -53,11 +54,20 @@ def create_schema(client: WeaviateClient, delete_old: bool) -> None:
         name="Chunks",
         vector_index_config=wvc.Configure.VectorIndex.hnsw(),
         properties=[
+            wvc.Property(name="title", data_type=wvc.DataType.TEXT),
             wvc.Property(name="text", data_type=wvc.DataType.TEXT),
             wvc.Property(name="start_page_id", data_type=wvc.DataType.TEXT),
             wvc.Property(name="from_page", data_type=wvc.DataType.INT),
             wvc.Property(name="to_page", data_type=wvc.DataType.INT),
+            wvc.Property(name="end_paragraph", data_type=wvc.DataType.BOOL),
             wvc.Property(name="language", data_type=wvc.DataType.TEXT),
+            wvc.Property(name="ner_P", data_type=wvc.DataType.TEXT_ARRAY),  # Person entities
+            wvc.Property(name="ner_T", data_type=wvc.DataType.TEXT_ARRAY),  # Temporal entities
+            wvc.Property(name="ner_A", data_type=wvc.DataType.TEXT_ARRAY),  # Address entities
+            wvc.Property(name="ner_G", data_type=wvc.DataType.TEXT_ARRAY),  # Geographical entities
+            wvc.Property(name="ner_I", data_type=wvc.DataType.TEXT_ARRAY),  # Institution entities
+            wvc.Property(name="ner_M", data_type=wvc.DataType.TEXT_ARRAY),  # Media entities
+            wvc.Property(name="ner_O", data_type=wvc.DataType.TEXT_ARRAY),  # Cultural artifacts
         ],
         references=[
             wvc.ReferenceProperty(
