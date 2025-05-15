@@ -239,16 +239,8 @@ def main(
 
     all_files = list(tqdm.tqdm(input_dir.rglob("*.jsonl"),
                      desc="Loading files", total=len(get_all_files(input_dir))))
-    number_of_files = len(all_files)
-    processing_progress = tqdm.tqdm(
-        desc="Processing files", total=number_of_files, position=0, leave=True)
 
-    while len((not_yet_processed := get_not_yet_processed(input_dir, output_dir))) > 0:
-        number_of_files_to_process = len(not_yet_processed)
-        processing_progress.n = number_of_files - number_of_files_to_process
-        processing_progress.refresh()
-
-        input_file = not_yet_processed[0]
+    for input_file in tqdm.tqdm(all_files, desc="Processing files", position=0, leave=True):
         output_file = output_dir / input_file.relative_to(input_dir)
         output_file.parent.mkdir(parents=True, exist_ok=True)
         if output_file.exists():
