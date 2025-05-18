@@ -23,6 +23,8 @@ def create_schema(client: WeaviateClient, delete_old: bool) -> None:
                 client.collections.delete(cls)
             except Exception as e:
                 pass
+    else:
+        return
 
     # 4) Create Document (with a reverse reference slot for collections)
     client.collections.create(
@@ -61,13 +63,14 @@ def create_schema(client: WeaviateClient, delete_old: bool) -> None:
             wvc.Property(name="to_page", data_type=wvc.DataType.INT),
             wvc.Property(name="end_paragraph", data_type=wvc.DataType.BOOL),
             wvc.Property(name="language", data_type=wvc.DataType.TEXT),
-            wvc.Property(name="ner_P", data_type=wvc.DataType.TEXT_ARRAY),  # Person entities
-            wvc.Property(name="ner_T", data_type=wvc.DataType.TEXT_ARRAY),  # Temporal entities
             wvc.Property(name="ner_A", data_type=wvc.DataType.TEXT_ARRAY),  # Address entities
             wvc.Property(name="ner_G", data_type=wvc.DataType.TEXT_ARRAY),  # Geographical entities
             wvc.Property(name="ner_I", data_type=wvc.DataType.TEXT_ARRAY),  # Institution entities
             wvc.Property(name="ner_M", data_type=wvc.DataType.TEXT_ARRAY),  # Media entities
+            wvc.Property(name="ner_N", data_type=wvc.DataType.TEXT_ARRAY),  # ???
             wvc.Property(name="ner_O", data_type=wvc.DataType.TEXT_ARRAY),  # Cultural artifacts
+            wvc.Property(name="ner_P", data_type=wvc.DataType.TEXT_ARRAY),  # Person entities
+            wvc.Property(name="ner_T", data_type=wvc.DataType.TEXT_ARRAY),  # Temporal entities
         ],
         references=[
             wvc.ReferenceProperty(
@@ -94,21 +97,30 @@ def insert_documents(client: WeaviateClient, source_dir: str) -> None:
             )
 
 def insert_chunks(client: WeaviateClient, source_dir: str) -> None:
-    chunk_col = client.collections.get("Chunks")
     jsonl_files = glob.glob(os.path.join(source_dir, "*.chunk.jsonl"))
     with client.batch.fixed_size(batch_size=32, concurrent_requests=2) as batch:
         for jsonl_file in tqdm(jsonl_files):
+            tqdm.write(jsonl_file)
             with open(jsonl_file, 'r', encoding='utf-8') as f:
                 lines = f.readlines()
                 for line in lines:
+                    line = line.strip()
+                    if not line:
+                        continue
                     data = json.loads(line)
+                    if 'id' not in data:
+                        continue
+                    uuid = data["id"]
+                    del data["id"]
+
                     document_uuid = data["document"]
                     del data["document"]
                     vector = data["vector"]
                     del data["vector"]
-                    
+
 
                     batch.add_object(
+                        uuid=uuid,
                         collection="Chunks",
                         properties=data,
                         vector=vector,
@@ -138,6 +150,8 @@ def main():
     # Insert documents and chunks
     insert_documents(client, args.source_dir)
     insert_chunks(client, args.source_dir)
+
+    client.close()
 
 if __name__ == "__main__":
     main()

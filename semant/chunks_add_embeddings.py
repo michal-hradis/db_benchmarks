@@ -5,7 +5,6 @@ import glob
 from tqdm import tqdm
 from weaviate_benchmark.text_embedders import EmbeddingGemma
 
-
 def parse_args():
     parser = argparse.ArgumentParser(description="Read text cunks from jsonl files, extract text exmbeddings and store them again into jsonl files.")
     parser.add_argument("--source-dir", type=str, required=True, help="Where to read source jsonl files from.")

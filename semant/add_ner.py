@@ -189,7 +189,7 @@ def process_file(
     objects = [json.loads(line)
                for line in file_path.open("r", encoding="utf-8")]
     for i, obj in enumerate(tqdm.tqdm(objects, desc=f"Processing {file_path.name}", position=1, leave=False)):
-        text = obj["text"]
+        text = obj["text"].replace('-\n', '')
         with logging_redirect_tqdm():
             logging.debug(
                 f"Processing line {i} from {file_path} with text: {text[:20]}...")
