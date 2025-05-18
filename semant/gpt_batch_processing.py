@@ -9,26 +9,26 @@ from openai import OpenAI
 TEMPLATES = {
     "specific": [
         {"role": "system",
-         "content": "Na základě přiloženého textu, napiš seznam "
-         "dvaceti otázek, které by mohl zadat historik, student, lingvista "
-         "nebo podobní lidé při vyhledávání informací ve velké kolekci dokumentů."
+         "content": "Jsi historik, sociolog, antropolog, knihovník, student, lingvista nebo podobně zaměřený člověk. "
+                    "Na základě přiloženého textu, napiš seznam dvaceti otázek, které bys mohl zadat  "
+         "při vyhledávání informací ve velké kolekci historických dokumentů. "
          "Na otázky musí být v přiloženém textu možné najít apoň částečnou odpověď. "
-         "Otázky by měly být konkrétní na konkrétní fakta. "
-         "Otázky by měly být takové, které by mohl člověk zadávat při vyhledávání ve velké kolekci historických dokumentů. "
-         "Vypiš pouze otázky bez dalšího textu. Ať jsou otázky různorodé svým obsahem i stylem. "
-         "Otázky se nesmí přímo odkazovat na uvedený text a jeho obsah, nebo jedna na druhou."},
+         "Otázky by měly být konkrétní na konkrétní fakta v textu. "
+         "Ať jsou otázky různorodé svým obsahem i stylem. "
+         "Otázky se nesmí přímo odkazovat na uvedený text a jeho obsah, ani se nesmí odkazovat jedna na druhou."
+         "Vypiš pouze otázky bez dalšího textu."},
         {"role": "user", "content": "Text je: {text}"}
     ],
     "general": [
         {"role": "system",
-         "content": "Na základě přiloženého textu, napiš seznam "
-         "dvaceti otázek, které by mohl zadat historik, student, lingvista "
-         "nebo podobní lidé při vyhledávání informací ve velké kolekci dokumentů."
+         "content": "Jsi historik, sociolog, antropolog, knihovník, student, lingvista nebo podobně zaměřený člověk. "
+                    "Na základě přiloženého textu, napiš seznam dvaceti otázek, které bys mohl zadat  "
+         "při vyhledávání informací ve velké kolekci historických dokumentů. "
          "Na otázky musí být v přiloženém textu možné najít apoň částečnou odpověď. "
-         "Otázky by měly být konkrétní na konkrétní fakta. "
-         "Otázky by měly být obecné - takové, na které by mohl člověk vyhledávat odpovědi ve velké kolekci historických dokumentů. "
-         "Vypiš pouze otázky bez dalšího textu. Ať jsou otázky různorodé svým obsahem i stylem. "
-         "Otázky se nesmí přímo odkazovat na uvedený text a jeho obsah, nebo jedna na druhou."},
+         "Otázky by měly být obecné,šířeji zaměřené, popovídající výzkumným otázkám. "
+         "Ať jsou otázky různorodé svým obsahem i stylem. "
+         "Otázky se nesmí přímo odkazovat na uvedený text a jeho obsah, ani se nesmí odkazovat jedna na druhou."
+         "Vypiš pouze otázky bez dalšího textu."},
         {"role": "user", "content": "What is the sentiment of this text? {text}"}
     ]
 }
@@ -102,7 +102,7 @@ def main():
     parser.add_argument("--input-dir", required=True, help="Directory with jsonl files")
     parser.add_argument("--template", required=True, choices=TEMPLATES.keys(), help="Template name")
     parser.add_argument("--batch-file", default="batch_tasks.jsonl", help="Path to save batch tasks file")
-    parser.add_argument("--model", default="gpt-3.5-turbo", help="OpenAI model name")
+    parser.add_argument("--model", default="gpt-4.1-mini", help="OpenAI model name")
     parser.add_argument("--submit", action="store_true", help="Submit batch to OpenAI")
     parser.add_argument("--batch-id", help="Batch ID to download results")
     parser.add_argument("--download-results", help="Path to save downloaded results")
