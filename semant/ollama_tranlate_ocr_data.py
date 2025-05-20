@@ -85,7 +85,6 @@ def parse_args():
         "--prompt", type=str, default='Translate the following line of text into {language}. Output only the translated text without anything else. Text is: "{text}"',
         help="Prompt template for the model. Use {text} as placeholder for the record's text and {language} for the target language."
     )
-    parser.add_argument()
     parser.add_argument(
          "--threads", type=int, default=1,
     )
@@ -121,11 +120,9 @@ def main():
     args = parse_args()
     client = Client(args.server)
 
-    dst_path = os.path.join(args.target_dir, os.path.basename(src_path))
-
     # 1) Load all lines into memory
     with open(args.source_file, 'r', encoding='utf-8') as infile:
-        records = [json.loads(line) for line in infile]
+        records = [line.strip() for line in infile]
 
     # 2) For each record, pick N random target languages and prepare translation jobs
     jobs = []
@@ -155,7 +152,7 @@ def main():
                     if translated is None:
                         tqdm.write(f"No response from model for record {job['line_id']}. Skipping.")
                         continue
-                    outfile.write(f"{job['line_id']} {job['some_number']} {job['lang_code']} {translated}\n")
+                    outfile.write(f"{job['line_id']} {job['some_number']} {job['lang_code']} {translated.strip()}\n")
                 except Exception as e:
                     tqdm.write(f"Error processing record {job['line_id']}: {e}")
                     continue
