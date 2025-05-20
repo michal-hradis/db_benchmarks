@@ -1,0 +1,64 @@
+Na základě přiloženého textu, napiš seznam dvaceti otázek, které by mohl zadat historik, student, lingvista nebo podobní lidé při vyhledávání informací ve velké kolekci dokumentů.
+Na otázky musí být v přiloženém textu možné najít apoň částečnou odpoveď.
+Text je:
+"Drahá paní z kontrolor!\nPořád ještě nevím nic. Ti čápi u re-\nvidentů už obletují moc z blízka. Objímá\nJich Jejich\n\nP. S. In Eile!\n\nHedvik Opelluschtill,\nc. kr. vdova.\n\nVelectěná!\nVím jen tolik, že ta dáma nosí hed-\nvábné spodničky s krajkami a klobouk\nflorentin s bílým pštrosím pérem. Odkud\nto má a co to stálo, se nestarám. Z mé\nkapsy to nešlo. A kdyby mně někdo\ns něčím takovým jako presentem přišel,\nvyrazila bych jím dvéře, jak jsem jen\nslabé děvče, které umí nanejvýš vládnout\ndrátem a jehlou, ale počestné děvče!!\nAnna Máčková.\nS úctou\nP. S. Za tu pohlednici, kterou jsem až\ndosud neobdržela, uctivě děkuji!\n\nVěstník živnostenský.\nZe Zemské jednoty živnosten-\nských společenstev na Moravě.\nVýborová schůze konala se v pondělí dne\n4. července. Valná hromada odbývati se\nbude v neděli 31. července o 10. hod.\ndop. v Besedním domě v Brně. Dva živ-\nnostenské sjezdy pořádány budou během\nletošího roku."
+Otázky by měly být obecné - takové, na které by mohl člověk vyhledávat odpovědi ve velké kolekcí historických dokumentů. Vypiš pouze otázky bez dalšího textu. Ať jsou otázky různorodé svým obsahem i stylem.  Otázky se nesmí přímo odkazovat na uvedený text a jeho obsah, nebo jedna na druhou.
+
+
+Na základě přiloženého textu, napiš seznam dvaceti otázek, které by mohl zadat historik, student, lingvista nebo podobní lidé při vyhledávání informací ve velké kolekci dokumentů.
+Na otázky musí být v přiloženém textu možné najít apoň částečnou odpoveď.
+Text je:
+"Drahá paní z kontrolor!\nPořád ještě nevím nic. Ti čápi u re-\nvidentů už obletují moc z blízka. Objímá\nJich Jejich\n\nP. S. In Eile!\n\nHedvik Opelluschtill,\nc. kr. vdova.\n\nVelectěná!\nVím jen tolik, že ta dáma nosí hed-\nvábné spodničky s krajkami a klobouk\nflorentin s bílým pštrosím pérem. Odkud\nto má a co to stálo, se nestarám. Z mé\nkapsy to nešlo. A kdyby mně někdo\ns něčím takovým jako presentem přišel,\nvyrazila bych jím dvéře, jak jsem jen\nslabé děvče, které umí nanejvýš vládnout\ndrátem a jehlou, ale počestné děvče!!\nAnna Máčková.\nS úctou\nP. S. Za tu pohlednici, kterou jsem až\ndosud neobdržela, uctivě děkuji!\n\nVěstník živnostenský.\nZe Zemské jednoty živnosten-\nských společenstev na Moravě.\nVýborová schůze konala se v pondělí dne\n4. července. Valná hromada odbývati se\nbude v neděli 31. července o 10. hod.\ndop. v Besedním domě v Brně. Dva živ-\nnostenské sjezdy pořádány budou během\nletošího roku."
+Otázky by měly konkrétní na konkrétní fakta. Otázky by měly být takové, které by mohl člověk zadávat při vyhledávání ve velké kolekcí historických dokumentů. Vypiš pouze otázky bez dalšího textu. Ať jsou otázky různorodé svým obsahem i stylem.  Otázky se nesmí přímo odkazovat na uvedený text a jeho obsah, nebo jedna na druhou.
+
+
+# Ne, měly by to být otázky na velkou ~kolekci dokumentů (vyhledávání), ne na tento konrkétní text
+    """
+Příklady vhodného typu otázek jsou:
+*) S kým se stýkala Božena Němcová?
+*) Které skupiny obyvatelstva byly v Československu diskriminovány?
+*) Jaké tresty byly ukládány za politické delikty v Československu za komunismu?
+*) Jaký byl rychlostní limit automobilů ve městě začátkem 20. století.
+*) Jaké byly hlavní příčiny vzniku druhé světové války?
+*) Jaká byla cena benzínu v roce 1938?
+*) V kolika letech se oženíl Karel Čapek a s kým?
+*) V jakých různých tvarech a variantách se vyskytovalo příjmení "Hradil"?
+*) Jak často lidé hladověli během 2. světové války?
+
+Na základě přiloženého textu, napiš seznam dvaceti otázek, které by mohl zadat historik, student, lingvista nebo podobní lidé při vyhledávání informací ve velké kolekci dokumentů.
+Na otázky musí být v přiloženém textu možné najít apoň částečnou odpoveď. A otázka musí být pochopitelná samo o sobě bez přiloženého textu.
+Text je:
+"mnohoobročník německo-pokrokové strany.\nnelíbí se ani „D. Blattu“ přes to, že je\nzuřivý Němec. Pan Heiter prý slíbil ve\nvoličské schůzi něco, co nedovede, totiž,\nže bude hájiti na sněmu zájmy živno-\nstenské, současně však také velkoprů-\nmyslu a jiné. Něco podobného prý do-\nvede pouze dr. Licht, jenž prý však je\nunikum politických dějin Rakouska. Dále\nse pozastavuje „D. Blatt“ nad prohláše-\nním Heitrovým, že na sněmu přistoupí\nk německo-pokrokové straně. Na sněmu\nje jednotný klub německých poslanců a\nžádný německo-pokrokový.\n— Z Lipníku přinesl podivné zprávy\n„Duch Času“ a sice o pustých orgiích\nv jednom tamním hostinci, který se těší\nprazvláštní přízni a ochraně německých\npánů z radnice. V hostinci tom jest ženská\nobsluha a scházejí se tam k pitkám stu-\ndenti. „Duch Času“ dokonce tvrdí, že
+Otázky by měly být obecnější - takové, na které by mohl historik, nebo jiný odborník vyhledávat odpovědi ve velké kolekcí dokumentů. Vypiš pouze otázky bez dalšího textu. Ať jsou otázky různorodé svým obsahem i stylem.
+
+z čehož ihned souzeno, že uprchlíci upotřebili jich\nk útěku svému při spouštění se s výšky. I pátráno v tomto\nsměru, a záhy zjištěno, že pakličem otevřeli si dvéře, vedoucí\nna půdu. Na straně směřující k zahradě káznice přivázán byl\nk trámu střechy provaz, stočený z prostěradel a visící do za-\nhrady. Po prostěradlech těchto spustili se káranci do zahrady\na odtud dostali se na svobodu přes zeď. Káranci prchli nej-\nspíše směrem ke Kladnu. Policejní strážníci jali se pátrati\nv celém okolí ve všech směrech, leč marně. Toliko jednoho\npodařilo se lapiti. Je to 21letý Jan Houda z Čenkova v kar-\nlínském okresu, jenž při spouštění se po prostěradlech anebo\npři skoku se zdi zahradní dopadl tak nešťastně na zem, že si\npochroumal nohu a nemohl prchnouti s ostatními soudruhy.\nStráž našla Houdu k ránu na Karlově mostě, i zatkla jej a\ndopravila na komisařství. Po ostatních uprchlících pátráno\ndosud marně. Jsou to: František Hromada, Václav Krásný,\nJosef Rak, Karel Chochol a Ant. Vaněk. Útěk šesti káranců\nzpůsobil na Hradčanech nemalý poplach.
+Měly by to být otázky na velkou kolekci dokumentů (vyhledávání), ne na tento konrkétní text. Nepoužívej otázky "Jaký ...".
+    """
+
+
+"""
+Příklady vhodného typu otázek jsou:
+    1) Jaký byl rychlostní limit automobilů ve městě začátkem 20. století.
+    2) Jaké byly hlavní příčiny vzniku druhé světové války?
+    3) Jaká byla cena benzínu v roce 1938?
+    4) Jaké byly hlavní události v Československu v roce 1989?
+
+Příklady vhodného typu otázek jsou:
+    1) V kolika letech se oženíl Karel Čapek a s kým?
+    2) Kolik let se dožila Božena Němcová?
+    3) Kolik dětí měla Marie Terezie?
+    4) Jak často lidé hladověli během 2. světové války?
+
+Příklady vhodného typu otázek jsou:
+    1) V jakých různých tvarech a variantách se vyskytovalo příjmení "Hradil"?
+    2) Kterými slovy se vyjadřoval pojem "tanečnice"?
+    3) Jaký byl význam slova "dráteník"?
+    4) Najdi mi příklad použití slova "kocour" v roli doplňku.
+
+Příklady vhodného typu otázek jsou:
+    1) S kým se stýkala Božena Němcová?
+    2) Kdo a proč podporoval vznik Československa?
+    3) Které skupiny obyvatelstva byly v Československu diskriminovány?
+    8) Jaké tresty byly ukládány za politické delikty v Československu za komunismu?
+
+"""
