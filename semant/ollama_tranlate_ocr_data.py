@@ -73,8 +73,7 @@ def parse_args():
         "--language", type=str, nargs="+", choices=list(languages.keys()), default=[
             "en", "es", "fr", "de", "it", "pt", "pl", "ru", "ar", "tr",
             "nl", "sv", "da", "no", "cs", "hu", "ro", "sk", "uk",
-            "el", "bg", "sr", "hr", "sl", "lt", "lv", "et",
-            "is", "mt", "ga", "cy", "eu", "ca", "la", "bs"
+            "el", "bg", "sr", "hr", "sl", "lt", "lv", "et", "la"
         ], help="Language codes to translate to. Default is most supported languages."
     )
     parser.add_argument(
@@ -127,10 +126,21 @@ def main():
     with open(args.source_file, 'r', encoding='utf-8') as infile:
         records = [json.loads(line) for line in infile]
 
+    # Read already processed line_ids from target_file if it exists
+    processed_ids = set()
+    if os.path.exists(args.target_file):
+        with open(args.target_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                parts = line.strip().split()
+                if parts:
+                    processed_ids.add(parts[0])
+
     # 2) For each record, pick N random target languages and prepare translation jobs
     jobs = []
     for rec in records:
         line_id = rec.split()[0]
+        if line_id in processed_ids:
+            continue
         some_number = rec.split()[1]
         text = " ".join(rec.split()[2:])
         chosen_langs = random.sample(args.language, min(args.languages_per_record, len(args.language)))
