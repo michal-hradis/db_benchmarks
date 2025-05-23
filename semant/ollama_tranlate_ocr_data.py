@@ -82,7 +82,7 @@ def parse_args():
         help="Number of random languages to translate each record to. Default is 4."
     )
     parser.add_argument(
-        "--prompt", type=str, default='Translate the following line of text into {language}. Output only the translated text without anything else. Text is: "{text}"',
+        "--prompt", type=str, default='Translate the following line of text into {language}. Prefer literal translation. Output only the translated text without anything else. Do not explain it, do not comment it. You can keep unintelligible parts as in the original. Text is: "{text}"',
         help="Prompt template for the model. Use {text} as placeholder for the record's text and {language} for the target language."
     )
     parser.add_argument(
@@ -120,24 +120,33 @@ def main():
     args = parse_args()
     client = Client(args.server)
 
+    # Read already processed file if it exists.
+    # this is used to skip already processed records
+    if os.path.exists(args.target_file):
+        with open(args.target_file, 'r', encoding='utf-8') as f:
+            processed_records = set(line.split()[0] for line in f if line.strip())
+    else:
+        processed_records = set()
+
     # 1) Load all lines into memory
     with open(args.source_file, 'r', encoding='utf-8') as infile:
-        records = [line.strip() for line in infile]
-
-    # 2) For each record, pick N random target languages and prepare translation jobs
-    jobs = []
-    for rec in records:
-        line_id = rec.split()[0]
-        some_number = rec.split()[1]
-        text = " ".join(rec.split()[2:])
-        chosen_langs = random.sample(args.language, min(args.languages_per_record, len(args.language)))
-        for lang_code in chosen_langs:
-            lang_name = languages[lang_code]
-            prompt = args.prompt.format(text=text, language=lang_name)
-            jobs.append({"line_id": line_id, "some_number": some_number, "lang_code": lang_code, "prompt": prompt})
+        jobs = []
+        for line in tqdm(infile, desc="Loading lines", leave=False):
+            # 2) For each record, pick N random target languages and prepare translation jobs
+            line_words = line.split()
+            line_id = line_words[0]
+            if line_id in processed_records:
+                continue
+            some_number = line_words[1]
+            text = " ".join(line_words[2:])
+            chosen_langs = random.sample(args.language, min(args.languages_per_record, len(args.language)))
+            for lang_code in chosen_langs:
+                lang_name = languages[lang_code]
+                prompt = args.prompt.format(text=text, language=lang_name)
+                jobs.append({"line_id": line_id, "some_number": some_number, "lang_code": lang_code, "prompt": prompt})
 
     # 3) Dispatch all Ollama calls in parallel
-    with open(args.target_file, 'w', encoding='utf-8') as outfile:
+    with open(args.target_file, 'a', encoding='utf-8') as outfile:
         with ThreadPoolExecutor(max_workers=args.threads) as executor:
             future_to_job = {
                 executor.submit(call_ollama, client, args.model, job["prompt"]): job
@@ -145,14 +154,15 @@ def main():
             }
 
             # 4) Collect results as they complete, with a progress bar
-            for future in tqdm(as_completed(future_to_job), desc="Translating", total=len(future_to_job), leave=False):
+            for future in tqdm(as_completed(future_to_job), desc="Translating", total=len(future_to_job), leave=False, smoothing=0.05):
                 job = future_to_job[future]
                 try:
                     translated = future.result()
                     if translated is None:
                         tqdm.write(f"No response from model for record {job['line_id']}. Skipping.")
                         continue
-                    outfile.write(f"{job['line_id']} {job['some_number']} {job['lang_code']} {translated.strip()}\n")
+                    translated = translated.strip().split("\n")[0].strip()
+                    outfile.write(f"{job['line_id']} {job['some_number']} {job['lang_code']} {translated}\n")
                 except Exception as e:
                     tqdm.write(f"Error processing record {job['line_id']}: {e}")
                     continue
