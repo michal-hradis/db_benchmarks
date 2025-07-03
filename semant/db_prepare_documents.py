@@ -138,9 +138,6 @@ def extract_chunks(doc_id, db_pages, line_confidence,
 
 def main():
     args = parse_args()
-    if os.path.exists(args.output_chunk_file):
-        print("Output chunk file already exists, exiting.")
-        return
 
     DATABASE_URL = os.getenv("DATABASE_URL", None)  # Replace with your actual database URL
     if not DATABASE_URL:
