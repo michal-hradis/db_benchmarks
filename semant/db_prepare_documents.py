@@ -37,6 +37,15 @@ def save_jsonl(data, filename):
     json.dump(to_save, open(filename, "w", encoding="utf-8"), ensure_ascii=False, indent=4)
 
 
+def process_document(db_doc, db_connection, db_model):
+    doc_id = db_doc.id
+    pages_result = db_connection.execute(select(db_model['meta_records']).where(db_model['meta_records'].c.parent_id == doc_id))
+    db_pages = pages_result.fetchall()
+    db_pages = sorted(db_pages, key=lambda p: p.order)
+    for db_page in db_pages:
+        print(db_page)
+
+
 def main():
     args = parse_args()
     if os.path.exists(args.output_chunk_file):
@@ -66,9 +75,11 @@ def main():
             with db_engine.connect() as db_connection:
                 result = db_connection.execute(select(db_model['meta_records']).where(db_model['meta_records'].c.id == doc_id))
                 result = result.fetchall()
-            if not result:
-                result = []
-            count_histogram[len(result)] += 1
+                if not result:
+                    result = []
+                count_histogram[len(result)] += 1
+                if result:
+                    process_document(result[0], db_connection, db_model)
             if counter % 10000 == 0:
                 for count, num_docs in count_histogram.items():
                     print(f"Documents with {count} records: {num_docs}")
