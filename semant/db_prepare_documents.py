@@ -200,7 +200,7 @@ def main():
                     with open(output_chunk_file, "w", encoding="utf-8") as f:
                         for i, chunk in enumerate(chunks):
                             chunk["document"] = result[0].id
-                            f.write(json.dumps(chunk, ensure_ascii=False) + "\n")
+                            f.write(json.dumps(chunk, ensure_ascii=False) + "\n", default=str)
 
             if counter % 10000 == 0:
                 for count, num_docs in count_histogram.items():
