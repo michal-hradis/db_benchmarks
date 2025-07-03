@@ -89,7 +89,7 @@ def extract_chunks(doc_id, db_pages, line_confidence,
                 # print(confidences)
                 if not chunks:
                     chunks.append(
-                        {"text": "", "start_page_id": db_page.id, "from_page": db_page.order, "order": len(chunks)})
+                        {"text": "", "start_page_id": str(db_page.id), "from_page": db_page.order, "order": len(chunks)})
 
                 paragraph_lines = [line for line in paragraph.lines if
                                    line.transcription and line.transcription_confidence > line_confidence]
@@ -107,14 +107,14 @@ def extract_chunks(doc_id, db_pages, line_confidence,
                             chunks[-1]["text"] = chunks[-1]["text"] + f'\n{paragraph_lines[0].transcription}'
                             paragraph_lines = paragraph_lines[1:]
                         chunks.append(
-                            {"text": "", "start_page_id": db_page.id, "from_page": db_page.order, "order": len(chunks)})
+                            {"text": "", "start_page_id": str(db_page.id), "from_page": db_page.order, "order": len(chunks)})
 
                     elif len(chunks[-1]["text"]) + len(paragraph_text) > min_chunk_chars:
                         chunks[-1]["to_page"] = db_page.order
                         chunks[-1]["end_paragraph"] = True
                         chunks[-1]["text"] = f'{chunks[-1]["text"]}\n\n{paragraph_text}'
                         chunks.append(
-                            {"text": "", "start_page_id": db_page.id, "from_page": db_page.order, "order": len(chunks)})
+                            {"text": "", "start_page_id": str(db_page.id), "from_page": db_page.order, "order": len(chunks)})
                         paragraph_lines = []
                     else:
                         chunks[-1]["text"] = f'{chunks[-1]["text"]}\n\n{paragraph_text}'
@@ -199,7 +199,7 @@ def main():
                     output_chunk_file = os.path.join(args.output_chunk_dir, f"{result[0].id}.jsonl")
                     with open(output_chunk_file, "w", encoding="utf-8") as f:
                         for i, chunk in enumerate(chunks):
-                            chunk["document"] = result[0].id
+                            chunk["document"] = str(result[0].id)
                             f.write(json.dumps(chunk, ensure_ascii=False) + "\n", default=str)
 
             if counter % 10000 == 0:
