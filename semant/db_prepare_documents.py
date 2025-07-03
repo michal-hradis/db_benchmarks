@@ -46,7 +46,6 @@ def process_document(db_doc, db_connection, db_model):
     mods_count = 0
     page_xml_count = 0
     for db_page in db_pages:
-        print(db_page)
         if db_page.image_path:
             image_count += 1
         if db_page.mods_path:
