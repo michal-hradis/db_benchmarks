@@ -64,75 +64,79 @@ def extract_chunks(doc_id, db_pages, line_confidence,
     page_xml_dir = f'{doc_id}.temp'
     os.makedirs(page_xml_dir, exist_ok=True)
 
-    zip_file_path = db_pages[0].page_xml_path
+    try:
 
-    if not zip_file_path or not os.path.exists(zip_file_path):
-        logging.error(f"Page XML file {zip_file_path} does not exist.")
-        return chunks
+        zip_file_path = db_pages[0].page_xml_path
 
-    with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
-        zip_ref.extractall(page_xml_dir)
+        if not zip_file_path or not os.path.exists(zip_file_path):
+            logging.error(f"Page XML file {zip_file_path} does not exist.")
+            return chunks
 
-    for db_page in db_pages:
-        layout = PageLayout()
-        page_xml_file = os.path.join(page_xml_dir, f'{db_page.id}.xml')
-        try:
-            layout.from_pagexml(page_xml_file)
-        except OSError:
-            logging.error(f"{page_xml_file} is not a valid PAGE XML file or does not exist.")
-            continue
+        with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
+            zip_ref.extractall(page_xml_dir)
 
-        for paragraph in layout.regions:
-            # confidences = ' '.join([str(line.transcription_confidence) for line in paragraph.lines])
-            # print(confidences)
-            if not chunks:
-                chunks.append(
-                    {"text": "", "start_page_id": db_page.id, "from_page": db_page.order, "order": len(chunks)})
+        for db_page in db_pages:
+            layout = PageLayout()
+            page_xml_file = os.path.join(page_xml_dir, f'{db_page.id}.xml')
+            try:
+                layout.from_pagexml(page_xml_file)
+            except OSError:
+                logging.error(f"{page_xml_file} is not a valid PAGE XML file or does not exist.")
+                continue
 
-            paragraph_lines = [line for line in paragraph.lines if
-                               line.transcription and line.transcription_confidence > line_confidence]
-
-            while paragraph_lines:
-                paragraph_text = '\n'.join([line.transcription for line in paragraph_lines])
-                if len(paragraph_text) <= 10:
-                    break
-
-                if len(chunks[-1]["text"]) + len(paragraph_text) > max_chunk_chars:
-                    chunks[-1]["to_page"] = db_page.order
-                    chunks[-1]["end_paragraph"] = False
-                    chunks[-1]["text"] = chunks[-1]["text"] + '\n'
-                    while len(chunks[-1]["text"]) < min_chunk_chars:
-                        chunks[-1]["text"] = chunks[-1]["text"] + f'\n{paragraph_lines[0].transcription}'
-                        paragraph_lines = paragraph_lines[1:]
+            for paragraph in layout.regions:
+                # confidences = ' '.join([str(line.transcription_confidence) for line in paragraph.lines])
+                # print(confidences)
+                if not chunks:
                     chunks.append(
                         {"text": "", "start_page_id": db_page.id, "from_page": db_page.order, "order": len(chunks)})
 
-                elif len(chunks[-1]["text"]) + len(paragraph_text) > min_chunk_chars:
-                    chunks[-1]["to_page"] = db_page.order
-                    chunks[-1]["end_paragraph"] = True
-                    chunks[-1]["text"] = f'{chunks[-1]["text"]}\n\n{paragraph_text}'
-                    chunks.append(
-                        {"text": "", "start_page_id": db_page.id, "from_page": db_page.order, "order": len(chunks)})
-                    paragraph_lines = []
-                else:
-                    chunks[-1]["text"] = f'{chunks[-1]["text"]}\n\n{paragraph_text}'
-                    paragraph_lines = []
+                paragraph_lines = [line for line in paragraph.lines if
+                                   line.transcription and line.transcription_confidence > line_confidence]
 
-    # delete the temporary extracted files and the directory
-    for file_name in glob(os.path.join(page_xml_dir, "*.xml")):
-        os.remove(file_name)
-    os.rmdir(page_xml_dir)
+                while paragraph_lines:
+                    paragraph_text = '\n'.join([line.transcription for line in paragraph_lines])
+                    if len(paragraph_text) <= 10:
+                        break
 
-    if len(chunks) > 0:
-        chunks[-1]["to_page"] = db_page.order
-        chunks[-1]["end_paragraph"] = True
+                    if len(chunks[-1]["text"]) + len(paragraph_text) > max_chunk_chars:
+                        chunks[-1]["to_page"] = db_page.order
+                        chunks[-1]["end_paragraph"] = False
+                        chunks[-1]["text"] = chunks[-1]["text"] + '\n'
+                        while len(chunks[-1]["text"]) < min_chunk_chars:
+                            chunks[-1]["text"] = chunks[-1]["text"] + f'\n{paragraph_lines[0].transcription}'
+                            paragraph_lines = paragraph_lines[1:]
+                        chunks.append(
+                            {"text": "", "start_page_id": db_page.id, "from_page": db_page.order, "order": len(chunks)})
 
-    if not chunks[-1]["text"]:
-        chunks.pop()
+                    elif len(chunks[-1]["text"]) + len(paragraph_text) > min_chunk_chars:
+                        chunks[-1]["to_page"] = db_page.order
+                        chunks[-1]["end_paragraph"] = True
+                        chunks[-1]["text"] = f'{chunks[-1]["text"]}\n\n{paragraph_text}'
+                        chunks.append(
+                            {"text": "", "start_page_id": db_page.id, "from_page": db_page.order, "order": len(chunks)})
+                        paragraph_lines = []
+                    else:
+                        chunks[-1]["text"] = f'{chunks[-1]["text"]}\n\n{paragraph_text}'
+                        paragraph_lines = []
 
-    for chunk in chunks:
-        chunk["id"] = str(uuid4())
-        chunk["text"] = chunk["text"].strip()
+        if len(chunks) > 0:
+            chunks[-1]["to_page"] = db_page.order
+            chunks[-1]["end_paragraph"] = True
+
+        if not chunks[-1]["text"]:
+            chunks.pop()
+
+        for chunk in chunks:
+            chunk["id"] = str(uuid4())
+            chunk["text"] = chunk["text"].strip()
+    except Exception as e:
+        logging.error(f"Error processing document {doc_id}: {e}")
+    finally:
+        # delete the temporary extracted files and the directory
+        for file_name in glob(os.path.join(page_xml_dir, "*.xml")):
+            os.remove(file_name)
+        os.rmdir(page_xml_dir)
 
     return chunks
 
