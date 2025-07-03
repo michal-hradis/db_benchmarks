@@ -178,7 +178,6 @@ def main():
                     mods_count += mods_c
                     page_xml_count += page_xml_c
                     page_count += page_c
-                    print(chunks)
 
                     if len(chunks) > 0:
                         chunk_lengths = [len(chunk["text"]) for chunk in chunks]
