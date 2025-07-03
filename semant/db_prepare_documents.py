@@ -42,8 +42,19 @@ def process_document(db_doc, db_connection, db_model):
     pages_result = db_connection.execute(select(db_model['meta_records']).where(db_model['meta_records'].c.parent_id == doc_id))
     db_pages = pages_result.fetchall()
     db_pages = sorted(db_pages, key=lambda p: p.order)
+    image_count = 0
+    mods_count = 0
+    page_xml_count = 0
     for db_page in db_pages:
         print(db_page)
+        if db_page.image_path:
+            image_count += 1
+        if db_page.mods_path:
+            mods_count += 1
+        if db_page.page_xml_path:
+            page_xml_count += 1
+
+    return image_count, mods_count, page_xml_count, len(db_pages)
 
 
 def main():
@@ -69,6 +80,11 @@ def main():
     db_model.reflect(bind=db_engine)
     db_model = db_model.tables
 
+    image_count = 0
+    mods_count = 0
+    page_xml_count = 0
+    page_count = 0
+
     count_histogram = defaultdict(int)
     for counter, doc_id in tqdm(enumerate(doc_to_process), desc="Counting documents", unit="document"):
         try:
@@ -79,10 +95,16 @@ def main():
                     result = []
                 count_histogram[len(result)] += 1
                 if result:
+                    image_c, mods_c, page_xml_c, page_c = process_document(result[0], db_connection, db_model)
+                    image_count += image_c
+                    mods_count += mods_c
+                    page_xml_count += page_xml_c
+                    page_count += page_c
                     process_document(result[0], db_connection, db_model)
             if counter % 10000 == 0:
                 for count, num_docs in count_histogram.items():
                     print(f"Documents with {count} records: {num_docs}")
+                    print(f"page_count: {page_count}, image_count: {image_count}, mods_count: {mods_count}, page_xml_count: {page_xml_count}")
         except KeyboardInterrupt as e:
             print("Interrupted by user, exiting.")
             exit(-1)
