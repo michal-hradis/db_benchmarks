@@ -37,7 +37,7 @@ def save_jsonl(data, filename):
     json.dump(to_save, open(filename, "w", encoding="utf-8"), ensure_ascii=False, indent=4)
 
 
-def process_document(db_doc, db_connection, db_model):
+def process_document(db_doc, db_connection, db_model, line_confidence=0.6):
     doc_id = db_doc.id
     pages_result = db_connection.execute(select(db_model['meta_records']).where(db_model['meta_records'].c.parent_id == doc_id))
     db_pages = pages_result.fetchall()
@@ -53,7 +53,9 @@ def process_document(db_doc, db_connection, db_model):
         if db_page.page_xml_path:
             page_xml_count += 1
 
-    return image_count, mods_count, page_xml_count, len(db_pages)
+    chunks = extract_chunks(doc_id, db_pages, line_confidence)
+
+    return image_count, mods_count, page_xml_count, len(db_pages), chunks
 
 
 def extract_chunks(doc_id, db_pages, line_confidence,
@@ -171,12 +173,12 @@ def main():
                     result = []
                 count_histogram[len(result)] += 1
                 if result:
-                    image_c, mods_c, page_xml_c, page_c = process_document(result[0], db_connection, db_model)
+                    image_c, mods_c, page_xml_c, page_c, chunks = process_document(result[0], db_connection, db_model, args.line_confidence)
                     image_count += image_c
                     mods_count += mods_c
                     page_xml_count += page_xml_c
                     page_count += page_c
-                    chunks = process_document(result[0], db_connection, db_model)
+                    print(chunks)
 
                     if len(chunks) > 0:
                         chunk_lengths = [len(chunk["text"]) for chunk in chunks]
