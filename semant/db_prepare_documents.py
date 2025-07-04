@@ -47,8 +47,6 @@ def save_jsonl(data, filename):
     json.dump(to_save, open(filename, "w", encoding="utf-8"), ensure_ascii=False, indent=4)
 
 
-
-
 def extract_chunks(doc_id, db_pages, line_confidence,
                    min_chunk_chars=768, max_chunk_chars = 1024 + 128):
     chunks = []
@@ -148,22 +146,32 @@ class ProcessingWorker:
         self.db_model.reflect(bind=self.db_engine)
         self.db_model = self.db_model.tables
 
-    def __call__(self, doc_id) -> dict | None:
+    def __call__(self, request) -> dict | None:
+
         if self.db_model is None:
             self._init_db()
 
+        doc_id, library_id = request
         output_chunk_file = os.path.join(self.output_chunk_dir, f"{doc_id}.jsonl")
+
+        function_result = {
+                "doc_id": doc_id,
+                "library": library_id,
+                "doc_missing": True,
+                "chunks_extracted": False
+            }
 
         with self.db_engine.connect() as db_connection:
             try:
                 result = db_connection.execute(select(self.db_model['meta_records']).where(self.db_model['meta_records'].c.id == doc_id))
             except Exception as e:
-                return None
+                return function_result
             result = result.fetchall()
             if not result:
-                return None
+                return function_result
 
             db_doc = result[0]
+            function_result["doc_missing"] = False
 
             try:
                 doc_id = db_doc.id
@@ -186,16 +194,21 @@ class ProcessingWorker:
                 chunks = extract_chunks(doc_id, db_pages, self.line_confidence,
                                         min_chunk_chars=self.min_chunk_chars, max_chunk_chars=self.max_chunk_chars)
                 if chunks is None:
-                    return None
+                    return function_result
 
             except Exception as e:
-                #logging.error(f"Error processing document {doc_id}: {e}")
-                return None
+                return function_result
 
+            function_result["chunks_extracted"] = True
             with open(output_chunk_file, "w", encoding="utf-8") as f:
                 for i, chunk in enumerate(chunks):
                     chunk["document"] = str(result[0].id)
                     f.write(json.dumps(chunk, ensure_ascii=False, default=str) + "\n")
+
+            function_result["image_count"] = image_count
+            function_result["mods_count"] = mods_count
+            function_result["page_xml_count"] = page_xml_count
+            function_result["page_count"] = page_count
 
             if len(chunks) > 0:
                 chunk_lengths = [len(chunk["text"]) for chunk in chunks]
@@ -205,20 +218,25 @@ class ProcessingWorker:
                 chunk_min = min(chunk_lengths)
                 chunk_max = max(chunk_lengths)
                 chunk_median = sorted(chunk_lengths)[chunk_count // 2]
+                function_result["chunk_sum"] = chunk_sum
+                function_result["chunk_count"] = chunk_count
+                function_result["chunk_avg"] = chunk_avg
+                function_result["chunk_min"] = chunk_min
+                function_result["chunk_median"] = chunk_median
+                function_result["chunk_max"] = chunk_max
                 #print(
                 #    f'{result[0].id}, {chunk_count}, {chunk_sum}, {chunk_avg:.2f}, {chunk_min}, {chunk_median}, {chunk_max}')
             else:
-                pass
+                function_result["chunk_sum"] = 0
+                function_result["chunk_count"] = 0
+                function_result["chunk_avg"] = 0.0
+                function_result["chunk_min"] = 0
+                function_result["chunk_median"] = 0
+                function_result["chunk_max"] = 0
                 #print(f'{result[0].id}, 0, 0, 0.00, 0, 0, 0')
 
-            return {
-                "doc_id": doc_id,
-                "image_count": image_count,
-                "mods_count": mods_count,
-                "page_xml_count": page_xml_count,
-                "page_count": page_count,
-                "chunk_count": len(chunks),
-            }
+            return function_result
+
 
 _worker = None
 
@@ -243,8 +261,9 @@ def main():
     with open(args.input_file, "r", encoding="utf-8") as f:
         for line in tqdm(f, desc="Reading input file", unit="line"):
             file_path = line.strip()
+            library_id = os.path.basename(file_path).split(".")[0]
             doc_id = os.path.basename(file_path).split(".")[1]
-            doc_to_process.append(doc_id)
+            doc_to_process.append((doc_id, library_id))
 
 
     logging.info(f"Read {len(doc_to_process)} documents from input file.")
@@ -254,10 +273,10 @@ def main():
     # filter already processed documents
     tmp_doc_to_process = doc_to_process
     doc_to_process = []
-    for counter, doc_id in tqdm(list(enumerate(tmp_doc_to_process)), desc="Filtering already processed documents"):
+    for counter, (doc_id, library_id) in tqdm(list(enumerate(tmp_doc_to_process)), desc="Filtering already processed documents"):
         output_chunk_file = os.path.join(args.output_chunk_dir, f"{doc_id}.jsonl")
         if not os.path.exists(output_chunk_file):
-            doc_to_process.append(doc_id)
+            doc_to_process.append((doc_id, library_id))
 
     logging.info(f"Documents to process after filtering: {len(doc_to_process)}")
 
@@ -275,6 +294,8 @@ def main():
     chunk_count = 0
     failed_doc_count = 0
 
+    missing_docs = defaultdict(int)
+
     counter = 0
     with Pool(processes=12,
                 initializer=_init_worker,
@@ -286,11 +307,20 @@ def main():
                 print(
                     f"page_count: {page_count}, image_count: {image_count}, mods_count: {mods_count}, page_xml_count: {page_xml_count}")
 
+                for library, count in missing_docs.items():
+                    print(f"Library {library} has {count} missing documents.")
+
             counter += 1
 
-            if result is None:
+            if result["doc_missing"]:
+                failed_doc_count += 1
+                missing_docs[result["library"]] += 1
+                continue
+
+            if not result["chunks_extracted"]:
                 failed_doc_count += 1
                 continue
+
             doc_id = result["doc_id"]
             image_c = result["image_count"]
             mods_c = result["mods_count"]
