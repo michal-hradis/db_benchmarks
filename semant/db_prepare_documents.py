@@ -322,17 +322,12 @@ def main():
                 continue
 
             doc_id = result["doc_id"]
-            image_c = result["image_count"]
-            mods_c = result["mods_count"]
-            page_xml_c = result["page_xml_count"]
-            page_c = result["page_count"]
-            chunk_c = result["chunk_count"]
 
-            image_count += image_c
-            mods_count += mods_c
-            page_xml_count += page_xml_c
-            page_count += page_c
-            chunk_count += chunk_c
+            image_count += result["image_count"]
+            mods_count += result["mods_count"]
+            page_xml_count += result["page_xml_count"]
+            page_count += result["page_count"]
+            chunk_count += result["chunk_count"]
 
 
 if __name__ == "__main__":
