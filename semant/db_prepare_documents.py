@@ -9,6 +9,10 @@ from tqdm import tqdm
 from collections import defaultdict
 from sqlalchemy import create_engine, select, MetaData
 import logging
+from multiprocessing import Pool
+
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
 
 def parse_args():
     parser = argparse.ArgumentParser(
@@ -17,7 +21,13 @@ def parse_args():
     parser.add_argument("--output-chunk-dir", required=True, type=str, help="Output jsonl directory.")
     parser.add_argument("--page-xml-dir", required=True, type=str, help="Directory with PAGE XML files.")
     parser.add_argument("--line-confidence", default=0.6, type=float,
-                        help="Minimum line confidence to include in the chunk.")
+                        help="Minimum line confidence to include in the chunk (default is 0.6).")
+    parser.add_argument("--min-chunk-chars", default=768, type=int,
+                        help="Minimum number of characters in a chunk (default is 768).")
+    parser.add_argument("--max-chunk-chars", default=1152, type=int,
+                        help="Maximum number of characters in a chunk (default is 1152).")
+    parser.add_argument("--max-count", type=int, default=100000000,
+                        help="Maximum number of documents to process (default is 100000000).")
     return parser.parse_args()
 
 
@@ -37,25 +47,6 @@ def save_jsonl(data, filename):
     json.dump(to_save, open(filename, "w", encoding="utf-8"), ensure_ascii=False, indent=4)
 
 
-def process_document(db_doc, db_connection, db_model, line_confidence=0.6):
-    doc_id = db_doc.id
-    pages_result = db_connection.execute(select(db_model['meta_records']).where(db_model['meta_records'].c.parent_id == doc_id))
-    db_pages = pages_result.fetchall()
-    db_pages = sorted(db_pages, key=lambda p: p.order)
-    image_count = 0
-    mods_count = 0
-    page_xml_count = 0
-    for db_page in db_pages:
-        if db_page.image_path:
-            image_count += 1
-        if db_page.mods_path:
-            mods_count += 1
-        if db_page.page_xml_path:
-            page_xml_count += 1
-
-    chunks = extract_chunks(doc_id, db_pages, line_confidence)
-
-    return image_count, mods_count, page_xml_count, len(db_pages), chunks
 
 
 def extract_chunks(doc_id, db_pages, line_confidence,
@@ -65,12 +56,11 @@ def extract_chunks(doc_id, db_pages, line_confidence,
     os.makedirs(page_xml_dir, exist_ok=True)
 
     try:
-
         zip_file_path = db_pages[0].page_xml_path
 
         if not zip_file_path or not os.path.exists(zip_file_path):
-            logging.error(f"Page XML file {zip_file_path} does not exist.")
-            return chunks
+            logging.debug(f"Page XML file {zip_file_path} does not exist.")
+            return None
 
         with zipfile.ZipFile(zip_file_path, 'r') as zip_ref:
             zip_ref.extractall(page_xml_dir)
@@ -81,7 +71,7 @@ def extract_chunks(doc_id, db_pages, line_confidence,
             try:
                 layout.from_pagexml(page_xml_file)
             except OSError:
-                logging.error(f"{page_xml_file} is not a valid PAGE XML file or does not exist.")
+                logging.debug(f"{page_xml_file} is not a valid PAGE XML file or does not exist.")
                 continue
 
             for paragraph in layout.regions:
@@ -131,7 +121,7 @@ def extract_chunks(doc_id, db_pages, line_confidence,
             chunk["id"] = str(uuid4())
             chunk["text"] = chunk["text"].strip()
     except Exception as e:
-        logging.error(f"Error processing document {doc_id}: {e}")
+        return None
     finally:
         # delete the temporary extracted files and the directory
         for file_name in glob(os.path.join(page_xml_dir, "*.xml")):
@@ -140,6 +130,106 @@ def extract_chunks(doc_id, db_pages, line_confidence,
 
     return chunks
 
+
+class ProcessingWorker:
+    def __init__(self, db_url, line_confidence, min_chunk_chars, max_chunk_chars, output_chunk_dir):
+        self.db_url = db_url
+        self.line_confidence = line_confidence
+        self.min_chunk_chars = min_chunk_chars
+        self.max_chunk_chars = max_chunk_chars
+        self.output_chunk_dir = output_chunk_dir
+
+        self.db_model = None
+        self.db_engine = None
+
+    def _init_db(self):
+        self.db_engine = create_engine(self.db_url)
+        self.db_model = MetaData()
+        self.db_model.reflect(bind=self.db_engine)
+        self.db_model = self.db_model.tables
+
+    def __call__(self, doc_id) -> dict | None:
+        if self.db_model is None:
+            self._init_db()
+
+        output_chunk_file = os.path.join(self.output_chunk_dir, f"{doc_id}.jsonl")
+
+        with self.db_engine.connect() as db_connection:
+            try:
+                result = db_connection.execute(select(self.db_model['meta_records']).where(self.db_model['meta_records'].c.id == doc_id))
+            except Exception as e:
+                return None
+            result = result.fetchall()
+            if not result:
+                return None
+
+            db_doc = result[0]
+
+            try:
+                doc_id = db_doc.id
+                pages_result = db_connection.execute(
+                    select(self.db_model['meta_records']).where(self.db_model['meta_records'].c.parent_id == doc_id))
+                db_pages = pages_result.fetchall()
+                db_pages = sorted(db_pages, key=lambda p: p.order)
+                page_count = len(db_pages)
+                image_count = 0
+                mods_count = 0
+                page_xml_count = 0
+                for db_page in db_pages:
+                    if db_page.image_path:
+                        image_count += 1
+                    if db_page.mods_path:
+                        mods_count += 1
+                    if db_page.page_xml_path:
+                        page_xml_count += 1
+
+                chunks = extract_chunks(doc_id, db_pages, self.line_confidence,
+                                        min_chunk_chars=self.min_chunk_chars, max_chunk_chars=self.max_chunk_chars)
+                if chunks is None:
+                    return None
+
+            except Exception as e:
+                #logging.error(f"Error processing document {doc_id}: {e}")
+                return None
+
+            with open(output_chunk_file, "w", encoding="utf-8") as f:
+                for i, chunk in enumerate(chunks):
+                    chunk["document"] = str(result[0].id)
+                    f.write(json.dumps(chunk, ensure_ascii=False, default=str) + "\n")
+
+            if len(chunks) > 0:
+                chunk_lengths = [len(chunk["text"]) for chunk in chunks]
+                chunk_sum = sum(chunk_lengths)
+                chunk_count = len(chunks)
+                chunk_avg = chunk_sum / chunk_count
+                chunk_min = min(chunk_lengths)
+                chunk_max = max(chunk_lengths)
+                chunk_median = sorted(chunk_lengths)[chunk_count // 2]
+                #print(
+                #    f'{result[0].id}, {chunk_count}, {chunk_sum}, {chunk_avg:.2f}, {chunk_min}, {chunk_median}, {chunk_max}')
+            else:
+                pass
+                #print(f'{result[0].id}, 0, 0, 0.00, 0, 0, 0')
+
+            return {
+                "doc_id": doc_id,
+                "image_count": image_count,
+                "mods_count": mods_count,
+                "page_xml_count": page_xml_count,
+                "page_count": page_count,
+                "chunk_count": len(chunks),
+            }
+
+_worker = None
+
+def _init_worker(db_url, line_confidence, min_chunk_chars, max_chunk_chars, output_chunk_dir):
+    # called exactly once in each worker process
+    global _worker
+    _worker = ProcessingWorker(db_url, line_confidence, min_chunk_chars, max_chunk_chars, output_chunk_dir)
+
+def worker_process(doc_id):
+    # called for every task in each worker, but uses the same _worker
+    return _worker(doc_id)
 
 
 def main():
@@ -156,69 +246,63 @@ def main():
             doc_id = os.path.basename(file_path).split(".")[1]
             doc_to_process.append(doc_id)
 
-    db_engine = create_engine(DATABASE_URL)
 
-    db_model = MetaData()
-    db_model.reflect(bind=db_engine)
-    db_model = db_model.tables
+    logging.info(f"Read {len(doc_to_process)} documents from input file.")
+    doc_to_process = doc_to_process[:args.max_count]
+
+    logging.info(f"Documents to process: {len(doc_to_process)}")
+    # filter already processed documents
+    tmp_doc_to_process = doc_to_process
+    doc_to_process = []
+    for counter, doc_id in tqdm(list(enumerate(tmp_doc_to_process)), desc="Filtering already processed documents"):
+        output_chunk_file = os.path.join(args.output_chunk_dir, f"{doc_id}.jsonl")
+        if not os.path.exists(output_chunk_file):
+            doc_to_process.append(doc_id)
+
+    logging.info(f"Documents to process after filtering: {len(doc_to_process)}")
+
+    if not doc_to_process:
+        logging.info("No documents to process. Exiting.")
+        return
+
+    if not os.path.exists(args.output_chunk_dir):
+        os.makedirs(args.output_chunk_dir, exist_ok=True)
 
     image_count = 0
     mods_count = 0
     page_xml_count = 0
     page_count = 0
+    chunk_count = 0
+    failed_doc_count = 0
 
-    count_histogram = defaultdict(int)
-    for counter, doc_id in tqdm(enumerate(doc_to_process), desc="Counting documents", unit="document"):
-        try:
-            with db_engine.connect() as db_connection:
-                result = db_connection.execute(select(db_model['meta_records']).where(db_model['meta_records'].c.id == doc_id))
-                result = result.fetchall()
-                if not result:
-                    result = []
-                count_histogram[len(result)] += 1
-                if result:
-                    image_c, mods_c, page_xml_c, page_c, chunks = process_document(result[0], db_connection, db_model, args.line_confidence)
-                    image_count += image_c
-                    mods_count += mods_c
-                    page_xml_count += page_xml_c
-                    page_count += page_c
-
-                    if len(chunks) > 0:
-                        chunk_lengths = [len(chunk["text"]) for chunk in chunks]
-                        chunk_sum = sum(chunk_lengths)
-                        chunk_count = len(chunks)
-                        chunk_avg = chunk_sum / chunk_count
-                        chunk_min = min(chunk_lengths)
-                        chunk_max = max(chunk_lengths)
-                        chunk_median = sorted(chunk_lengths)[chunk_count // 2]
-                        print(
-                            f'{result[0].id}, {chunk_count}, {chunk_sum}, {chunk_avg:.2f}, {chunk_min}, {chunk_median}, {chunk_max}')
-                    else:
-                        print(f'{result[0].id}, 0, 0, 0.00, 0, 0, 0')
-
-                    output_chunk_file = os.path.join(args.output_chunk_dir, f"{result[0].id}.jsonl")
-                    with open(output_chunk_file, "w", encoding="utf-8") as f:
-                        for i, chunk in enumerate(chunks):
-                            chunk["document"] = str(result[0].id)
-                            f.write(json.dumps(chunk, ensure_ascii=False) + "\n", default=str)
-
+    counter = 0
+    with Pool(processes=12,
+                initializer=_init_worker,
+                initargs=(DATABASE_URL, args.line_confidence, args.min_chunk_chars, args.max_chunk_chars, args.output_chunk_dir)
+              ) as pool:
+        for result in tqdm(pool.imap(worker_process, doc_to_process), total=len(doc_to_process), desc="Processing documents"):
             if counter % 10000 == 0:
-                for count, num_docs in count_histogram.items():
-                    print(f"Documents with {count} records: {num_docs}")
-                    print(f"page_count: {page_count}, image_count: {image_count}, mods_count: {mods_count}, page_xml_count: {page_xml_count}")
-        except KeyboardInterrupt as e:
-            print("Interrupted by user, exiting.")
-            exit(-1)
-        except Exception as e:
-            print(f"Error processing document {doc_id}: {e}")
-            continue
+                print(f"Failed documents: {failed_doc_count} / {counter}")
+                print(
+                    f"page_count: {page_count}, image_count: {image_count}, mods_count: {mods_count}, page_xml_count: {page_xml_count}")
 
-    exit(-1)
+            counter += 1
 
+            if result is None:
+                failed_doc_count += 1
+                continue
+            doc_id = result["doc_id"]
+            image_c = result["image_count"]
+            mods_c = result["mods_count"]
+            page_xml_c = result["page_xml_count"]
+            page_c = result["page_count"]
+            chunk_c = result["chunk_count"]
 
-
-
-
+            image_count += image_c
+            mods_count += mods_c
+            page_xml_count += page_xml_c
+            page_count += page_c
+            chunk_count += chunk_c
 
 
 if __name__ == "__main__":
