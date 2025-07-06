@@ -30,12 +30,17 @@ def main():
 
     embedder = EmbeddingGemma()
 
+    # shuffle the files to ensure random processing order
+    np.random.shuffle(jsonl_files)
+
     # Process each file
     for jsonl_file in tqdm(jsonl_files, position=0, desc="Processing files"):
         target_file = os.path.join(args.target_dir, os.path.basename(jsonl_file))
         if os.path.exists(target_file):
             tqdm.write(f"Target file {target_file} already exists, skipping.")
             continue
+
+        os.touch(target_file)  # Claim this file for when running in parallel
 
         with open(jsonl_file, 'r') as f:
             lines = f.readlines()
