@@ -43,6 +43,9 @@ def main():
 
     model = FasttextLanguageIdentification()
 
+    if args.target_dir and not os.path.exists(args.target_dir):
+        os.makedirs(args.target_dir, exist_ok=True)
+
     # Process each file
     for jsonl_file in tqdm(jsonl_files, position=0, desc="Processing files"):
         target_file = os.path.join(args.target_dir, os.path.basename(jsonl_file))
