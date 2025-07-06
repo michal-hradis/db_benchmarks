@@ -40,7 +40,7 @@ def main():
             tqdm.write(f"Target file {target_file} already exists, skipping.")
             continue
 
-        os.open(target_file, 'a').close() # Claim this file for when running in parallel
+        open(target_file, 'a').close() # Claim this file for when running in parallel
 
         with open(jsonl_file, 'r') as f:
             lines = f.readlines()
