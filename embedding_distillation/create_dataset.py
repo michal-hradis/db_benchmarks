@@ -31,7 +31,7 @@ def main():
 
     schema = pa.schema([
         ("text", pa.string()),
-        ("embedding", pa.fixed_size_list(pa.float16(), args.embedding_dim)),
+        ("embedding", pa.FixedSizeListType(pa.float16(), args.embedding_dim)),
     ])
 
     writer = pq.ParquetWriter(args.target_file, schema)
