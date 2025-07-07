@@ -73,3 +73,26 @@ def main():
 
                     buffer_texts.clear()
                     buffer_embs.clear()
+
+            # Write any remaining records
+            if buffer_texts:
+                indices = np.random.permutation(len(buffer_texts))
+                buffer_texts = [buffer_texts[i] for i in indices]
+                buffer_embs = [buffer_embs[i] for i in indices]
+
+                arr_text = pa.array(buffer_texts, pa.string())
+                flat = pa.array(
+                    np.stack(buffer_embs).reshape(-1),
+                    pa.float16()
+                )
+                arr_emb = pa.FixedSizeListArray.from_arrays(flat, args.embedding_dim)
+
+                tbl = pa.Table.from_arrays([arr_text, arr_emb], schema.names)
+                writer.write_table(tbl)
+
+    writer.close()
+
+    print(f"Parquet dataset created at {args.target_file}")
+
+if __name__ == "__main__":
+    main()
