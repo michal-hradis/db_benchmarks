@@ -24,6 +24,8 @@ def main():
 
     # Get all JSONL files in the source directory
     jsonl_files = glob(os.path.join(args.source_dir, "*.jsonl"))
+    # Shuffle the files to ensure random processing order
+    jsonl_files = np.random.permutation(jsonl_files).tolist()
 
     if not jsonl_files:
         print(f"No JSONL files found in {args.source_dir}.")
