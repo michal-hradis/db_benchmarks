@@ -39,7 +39,7 @@ def main():
     writer = pq.ParquetWriter(args.target_file, schema)
 
     buffer_texts, buffer_embs = [], []
-    batch_size = 100_000
+    batch_size = 1_000
 
     for jsonl_file in tqdm(jsonl_files, desc="Processing files"):
         with open(jsonl_file, 'r', encoding='utf-8') as f:
