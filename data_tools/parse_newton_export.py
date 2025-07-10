@@ -93,12 +93,13 @@ def main():
     parser = argparse.ArgumentParser(description="Extract articles from a Blesk newspaper file.")
     parser.add_argument('-i', '--input-file', required=True, type=str, help="Path to the input file containing newspaper articles.")
     parser.add_argument('-o', '--output-file', type=str, help="Path to the output jsonl file to save extracted article chunks.")
+    parser.add_argument('--target-chunk-chars', type=int, default=1024, help="Target number of characters per chunk.")
     args = parser.parse_args()
 
     articles = extract_articles(args.input_file)
     chunks = []
     for article in articles:
-        chunks.extend(split_record(article, target_chunk_chars=1024))
+        chunks.extend(split_record(article, target_chunk_chars=args.target_chunk_chars))
     with open(args.output_file, 'w', encoding='utf-8') as f:
         for chunk in chunks:
             f.write(json.dumps(chunk, ensure_ascii=False) + '\n')
