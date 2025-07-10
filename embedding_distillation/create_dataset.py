@@ -16,6 +16,8 @@ def parse_args():
     parser.add_argument("--source-dir", type=str, required=True, help="Directory to read source JSONL files from.")
     parser.add_argument("--target-file", type=str, required=True, help="Path to the target Parquet file.")
     parser.add_argument("--embedding-dim", type=int, default=2048, help="Dimension of the embedding.")
+    parser.add_argument("--languages", type=str, nargs='+', default=[], help="List of languages to filter by. No filtering by default.")
+    parser.add_argument("--embedding-suffix", type=str, default='_embeddings.npy', help="Suffix for the embedding numpy files. Default is '_embeddings.npy'.")
     return parser.parse_args()
 
 
@@ -44,10 +46,12 @@ def main():
     for jsonl_file in tqdm(jsonl_files, desc="Processing files"):
         with open(jsonl_file, 'r', encoding='utf-8') as f:
 
-            embeddings = np.load(jsonl_file.replace('.jsonl', '_embeddings.npy'))
+            embeddings = np.load(jsonl_file.replace('.jsonl', args.embedding_suffix), allow_pickle=True)
 
             for line in f:
                 record = json.loads(line)
+                if args.languages and ("language" not in record or record["language"] not in args.languages):
+                    continue
                 text = record["text"]
                 vector_index = record["vector_index"]
                 embedding = embeddings[vector_index].astype(np.float16)
