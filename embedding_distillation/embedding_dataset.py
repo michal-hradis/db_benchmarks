@@ -25,29 +25,29 @@ class ParquetIterableDataset(IterableDataset):
 
         self.tokenizer  = tokenizer
         self.max_length = max_length
-        self.row_groups = None
+
+        # Create list of row groups
+        self.row_groups = []
+        for fp in self.files:
+            pf = pq.ParquetFile(fp)
+            # store (file_path, num_row_groups)
+            for i in range(pf.num_row_groups):
+                self.row_groups.append((fp, i))
+
+        # shuffle row groups to ensure random access - with constant seed for reproducibility
+        random.seed(42)
+        random.shuffle(self.row_groups)
 
     def __iter__(self):
         worker_info = get_worker_info()
 
-        # Precompute how many row-groups in each file:
-        if self.row_groups is None:
-            self.row_groups = []
-            for fp in self.files:
-                pf = pq.ParquetFile(fp)
-                # store (file_path, num_row_groups)
-                for i in range(pf.num_row_groups):
-                    self.row_groups.append((fp, i))
-
-        num_row_groups = len(self.row_groups)
-
         # Split row groups across workers
         if worker_info is None:
-            row_group_ids = range(num_row_groups)
+            row_group_ids = range(len(self.row_groups))
         else:
             num_workers = worker_info.num_workers
             worker_id = worker_info.id
-            row_group_ids = list(range(num_row_groups))[worker_id::num_workers]
+            row_group_ids = list(range(len(self.row_groups)))[worker_id::num_workers]
 
         for global_rg_id in row_group_ids:
             pq_file, rg_id = self.row_groups[global_rg_id]
