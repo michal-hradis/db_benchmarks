@@ -19,22 +19,38 @@ class DistillEmbedder(LightningModule):
         hid = out.last_hidden_state
         mask = attention_mask.unsqueeze(-1)
         emb = (hid * mask).sum(1) / mask.sum(1)
-        emb = self.proj(emb)
-        return F.normalize(emb, p=2, dim=1)
+        emb_2 = self.proj(emb)
+        return F.normalize(emb_2, p=2, dim=1), F.normalize(emb, p=2, dim=1), 
 
     def training_step(self, batch, batch_idx):
-        s_emb = self(batch["input_ids"], batch["attention_mask"])
+        s_emb_2, s_emb = self(batch["input_ids"], batch["attention_mask"])
         t_emb = F.normalize(batch["embedding"].float(), p=2, dim=1)
-        emb_loss = F.mse_loss(s_emb, t_emb)
+        emb_loss = F.mse_loss(s_emb_2, t_emb)
 
         teacher_products = torch.matmul(t_emb, t_emb.T)
         student_products = torch.matmul(s_emb, s_emb.T)
+        #print(t_emb.shape, s_emb.shape, teacher_products.shape, student_products.shape, teacher_products.max().item(), teacher_products.min().item(), student_products.max().item(), student_products.min().item(), student_products, teacher_products, s_emb, t_emb)
         product_loss = F.mse_loss(student_products, teacher_products)
 
         loss = self.emb_loss_weight * emb_loss + self.product_loss_weight * product_loss
 
         self.log_dict({"loss": loss, "product_loss": product_loss, "emb_loss": emb_loss}, prog_bar=True)
         return loss
+
+    def validation_step(self, batch, batch_idx):
+        s_emb_2, s_emb = self(batch["input_ids"], batch["attention_mask"])
+        t_emb = F.normalize(batch["embedding"].float(), p=2, dim=1)
+        emb_loss = F.mse_loss(s_emb_2, t_emb)
+
+        teacher_products = torch.matmul(t_emb, t_emb.T)
+        student_products = torch.matmul(s_emb, s_emb.T)
+        #print(t_emb.shape, s_emb.shape, teacher_products.shape, student_products.shape, teacher_products.max().item(), teacher_products.min().item(), student_products.max().item(), student_products.min().item(), student_products, teacher_products, s_emb, t_emb)
+        product_loss = F.mse_loss(student_products, teacher_products)
+
+        loss = self.emb_loss_weight * emb_loss + self.product_loss_weight * product_loss
+
+        self.log_dict({"val_loss": loss, "val_product_loss": product_loss, "val_emb_loss": emb_loss}, prog_bar=True)
+        return {"val_loss": loss}
 
     def configure_optimizers(self):
         optimizer = torch.optim.AdamW(self.parameters(), lr=self.lr)
