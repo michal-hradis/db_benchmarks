@@ -104,7 +104,7 @@ class BufferedShuffleDataset(IterableDataset):
 
 
 class EmbedDistillDataModule(LightningDataModule):
-    def __init__(self, trn_ds: str, val_ds: str, tokenizer: str,  batch_size=64, num_workers=8):
+    def __init__(self, trn_ds: str, val_ds: str, tokenizer: str=None,  batch_size=64, num_workers=8):
         super().__init__()
         self.trn_ds = trn_ds
         self.val_ds = val_ds
