@@ -169,6 +169,11 @@ class EmbedDistillDataModule(LightningDataModule):
         )
 
     def _collate(self, batch: list):
+        if self.tokenizer is None:
+            return {
+                    "embedding": torch.stack([text["embedding"] for text in batch])
+                }
+
         texts = [text["text"] for text in batch]
         tokens = self.b_tokenizer(
             texts,
@@ -182,12 +187,6 @@ class EmbedDistillDataModule(LightningDataModule):
             "attention_mask": tokens["attention_mask"],
             "embedding": torch.stack([text["embedding"] for text in batch])
         }
-
-        #return {
-        #        "attention_mask": torch.stack([b["attention_mask"] for b in batch]),
-        #        "input_ids": torch.stack([b["input_ids"] for b in batch]),
-        #        "embedding": torch.stack([b["embedding"] for b in batch])
-        #}
 
 
 if __name__ == "__main__":
