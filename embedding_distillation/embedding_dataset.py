@@ -7,19 +7,39 @@ from pytorch_lightning import LightningDataModule
 import pyarrow.parquet as pq
 from torch.utils.data import IterableDataset, get_worker_info
 import random
+import os
+from glob import glob
 
 
 class ParquetIterableDataset(IterableDataset):
-    def __init__(self, parquet_path, tokenizer=None, max_length=256):
-        self.parquet_path = parquet_path
-        self.tokenizer = tokenizer
-        self.max_length = max_length  # Length will be determined dynamically
+    def __init__(self, parquet_paths, tokenizer=None, max_length=256):
+        # Accept a single path, a directory, or a list:
+        if isinstance(parquet_paths, str):
+            if os.path.isdir(parquet_paths):
+                self.files = sorted(glob(os.path.join(parquet_paths, "*.parquet")))
+            else:
+                self.files = [parquet_paths]
+        else:
+            self.files = list(parquet_paths)
+        assert self.files, f"No parquet files found in {parquet_paths}"
+
+        self.tokenizer  = tokenizer
+        self.max_length = max_length
+        self.row_groups = None
 
     def __iter__(self):
         worker_info = get_worker_info()
-        pq_file = pq.ParquetFile(self.parquet_path)
 
-        num_row_groups = pq_file.num_row_groups
+        # Precompute how many row-groups in each file:
+        if self.row_groups is None:
+            self.row_groups = []
+            for fp in self.files:
+                pf = pq.ParquetFile(fp)
+                # store (file_path, num_row_groups)
+                for i in range(pf.num_row_groups):
+                    self.row_groups.append((fp, i))
+
+        num_row_groups = len(self.row_groups)
 
         # Split row groups across workers
         if worker_info is None:
@@ -29,15 +49,16 @@ class ParquetIterableDataset(IterableDataset):
             worker_id = worker_info.id
             row_group_ids = list(range(num_row_groups))[worker_id::num_workers]
 
-        for rg_id in row_group_ids:
+        for global_rg_id in row_group_ids:
+            pq_file, rg_id = self.row_groups[global_rg_id]
+            pq_file = pq.ParquetFile(pq_file)
             row_group = pq_file.read_row_group(rg_id)
             text_array = row_group.column("text")
             embedding_array = row_group.column("embedding")
 
             for i in range(len(text_array)):
                 text = text_array[i].as_py()
-                #embedding = embedding_array[i].values.to_numpy().astype("float16")  # or float16
-                embedding = torch.tensor(embedding_array[i].as_py(), dtype=torch.float16)
+                embedding = torch.tensor(embedding_array[i].values, dtype=torch.float16)
 
                 if self.tokenizer:
                     # Tokenize the text if a tokenizer is provided
@@ -57,7 +78,7 @@ class ParquetIterableDataset(IterableDataset):
 
 
 class BufferedShuffleDataset(IterableDataset):
-    def __init__(self, dataset, buffer_size=1000, seed=42):
+    def __init__(self, dataset, buffer_size=10000, seed=42):
         self.dataset = dataset
         self.buffer_size = buffer_size
         self.seed = seed
@@ -126,11 +147,12 @@ class EmbedDistillDataModule(LightningDataModule):
             #AutoTokenizer.from_pretrained(self.tokenizer, use_fast=True)
 
         if stage == "fit" or stage is None:
-            self.b_trn_ds = ParquetIterableDataset(self.trn_ds, tokenizer=None, max_length=16)
-            self.b_trn_ds = BufferedShuffleDataset(self.b_trn_ds, buffer_size=1_000, seed=42)
+            self.b_trn_ds = ParquetIterableDataset(self.trn_ds, tokenizer=None, max_length=256)
+            self.b_trn_ds = BufferedShuffleDataset(self.b_trn_ds, buffer_size=20_000, seed=42)
+            self.b_val_ds = ParquetIterableDataset(self.val_ds, tokenizer=None, max_length=256)
 
         if stage == "validate" or stage is None:
-            self.b_val_ds = ParquetIterableDataset(self.val_ds, tokenizer=None, max_length=16)
+            self.b_val_ds = ParquetIterableDataset(self.val_ds, tokenizer=None, max_length=256)
 
     def train_dataloader(self):
         return DataLoader(
@@ -141,7 +163,7 @@ class EmbedDistillDataModule(LightningDataModule):
 
     def val_dataloader(self):
         return DataLoader(
-            self.val_ds, batch_size=self.batch_size,
+            self.b_val_ds, batch_size=self.batch_size,
             shuffle=False, num_workers=self.num_workers,
             collate_fn=self._collate
         )
