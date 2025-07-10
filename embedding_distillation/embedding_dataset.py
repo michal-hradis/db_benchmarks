@@ -142,7 +142,7 @@ class EmbedDistillDataModule(LightningDataModule):
         return parent_parser
 
     def setup(self, stage=None):
-        if self.b_tokenizer is None:
+        if self.b_tokenizer is None and self.tokenizer:
             self.b_tokenizer = PreTrainedTokenizerFast.from_pretrained(self.tokenizer)
             #AutoTokenizer.from_pretrained(self.tokenizer, use_fast=True)
 
