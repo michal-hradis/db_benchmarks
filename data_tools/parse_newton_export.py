@@ -4,7 +4,7 @@ import json
 from uuid import uuid4
 
 
-def split_record(record, target_chunk_chars=1024):
+def split_record(record: dict, target_chunk_chars=1024) -> list[dict]:
     """
     Splits a record into smaller chunks based on character limits.
     """
