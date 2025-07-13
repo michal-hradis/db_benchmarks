@@ -12,10 +12,11 @@ class CompressionEmbedder(LightningModule):
         self.lr = lr
         self.teacher_dim = teacher_dim
         self.dim = dim
-        l = [torch.nn.Linear(teacher_dim, dim)]
+        l = []
         for i in range(layers -1):
+            l.append(torch.nn.Linear(teacher_dim, teacher_dim))
             l.append(torch.nn.Softplus())
-            l.append(torch.nn.Linear(dim, dim))
+        l.append(torch.nn.Linear(teacher_dim, dim))
         self.model = torch.nn.Sequential(*l)
 
     def on_save_checkpoint(self, checkpoint: dict) -> None:
