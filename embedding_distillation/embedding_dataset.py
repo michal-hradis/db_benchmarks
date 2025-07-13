@@ -1,5 +1,5 @@
 from torch.utils.data import Dataset
-
+from tokenizers.processors import TemplateProcessing
 import torch
 from transformers import AutoTokenizer, PreTrainedTokenizerFast
 from torch.utils.data import DataLoader
@@ -10,6 +10,15 @@ import random
 import os
 from glob import glob
 
+#"post_processor": {
+#  "type": "TemplateProcessing",
+#  "single": "[CLS] $A [SEP]",
+#  "pair":   "[CLS] $A [SEP] $B [SEP]",
+#  "special_tokens": [
+#    { "id": 2, "special": "[CLS]" },
+#    { "id": 3, "special": "[SEP]" }
+#  ]
+#},
 
 class ParquetIterableDataset(IterableDataset):
     def __init__(self, parquet_paths, tokenizer=None, max_length=256):
@@ -144,6 +153,15 @@ class EmbedDistillDataModule(LightningDataModule):
     def setup(self, stage=None):
         if self.b_tokenizer is None and self.tokenizer:
             self.b_tokenizer = PreTrainedTokenizerFast.from_pretrained(self.tokenizer)
+            self.b_tokenizer._tokenizer.post_processor = TemplateProcessing(
+                single="[CLS] [SEP] $A [SEP]",
+                pair="[CLS] [SEP] $A [SEP] $B [SEP]",
+                special_tokens=[
+                    ("[CLS]", self.b_tokenizer.cls_token_id),
+                    ("[SEP]", self.b_tokenizer.sep_token_id),
+                ],
+            )
+
             #AutoTokenizer.from_pretrained(self.tokenizer, use_fast=True)
 
         if stage == "fit" or stage is None:
@@ -180,7 +198,9 @@ class EmbedDistillDataModule(LightningDataModule):
             truncation=True,
             padding="max_length",
             max_length=256,  # Fixed length for simplicity
-            return_tensors="pt"
+            return_tensors="pt",
+            return_attention_mask=True,
+            add_special_tokens=True
         )
         return {
             "input_ids": tokens["input_ids"],
