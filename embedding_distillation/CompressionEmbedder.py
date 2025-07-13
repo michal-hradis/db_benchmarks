@@ -2,17 +2,29 @@ import torch
 import torch.nn.functional as F
 from transformers import AutoModel, AutoConfig
 from pytorch_lightning import LightningModule
+import os
+
 
 class CompressionEmbedder(LightningModule):
     def __init__(self, teacher_dim, layers: int = 2, dim: int = 512, lr=3e-5):
         super().__init__()
         self.save_hyperparameters()
         self.lr = lr
+        self.teacher_dim = teacher_dim
+        self.dim = dim
         l = [torch.nn.Linear(teacher_dim, dim)]
         for i in range(layers -1):
             l.append(torch.nn.Softplus())
             l.append(torch.nn.Linear(dim, dim))
         self.model = torch.nn.Sequential(*l)
+
+    def on_save_checkpoint(self, checkpoint: dict) -> None:
+        """This hook is called whenever Lightning writes a .ckpt file."""
+        save_dir = os.path.splitext(self.trainer.checkpoint_callback.best_model_path)[0]
+        os.makedirs(save_dir, exist_ok=True)
+        example_input = torch.randn(1, self.teacher_dim, device=self.device)
+        ts_model = torch.jit.trace(self.model, example_input)
+        ts_model.save(os.path.join(save_dir, f'ts_model_{self.teacher_dim}_{self.dim}.pt'))
 
     def forward(self, x):
         out = self.model(x)
