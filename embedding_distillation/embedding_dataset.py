@@ -47,16 +47,25 @@ class ParquetIterableDataset(IterableDataset):
         random.seed(42)
         random.shuffle(self.row_groups)
 
+        self.rank = None
+        self.world_size = None
+
     def __iter__(self):
+        if self.rank is None:
+            self.rank = int(os.environ.get('LOCAL_RANK', 0))
+            self.world_size = int(os.environ.get('WORLD_SIZE', 1))
+
         worker_info = get_worker_info()
 
         # Split row groups across workers
-        if worker_info is None:
+        if worker_info is None and self.world_size == 1:
             row_group_ids = range(len(self.row_groups))
         else:
             num_workers = worker_info.num_workers
             worker_id = worker_info.id
-            row_group_ids = list(range(len(self.row_groups)))[worker_id::num_workers]
+            start = worker_id + self.rank * num_workers
+            step = num_workers * self.world_size
+            row_group_ids = list(range(len(self.row_groups)))[start::step]
 
         for global_rg_id in row_group_ids:
             pq_file, rg_id = self.row_groups[global_rg_id]
