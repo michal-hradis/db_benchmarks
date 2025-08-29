@@ -94,8 +94,8 @@ def create_chunk_schema(client: WeaviateClient, keys: list[str], chunk_collectio
     properties = []
     unknown_keys = set()
     for key in keys:
-        if key in document_column_types:
-            properties.append(wvc.Property(name=key, data_type=document_column_types[key]))
+        if key in chunk_column_types:
+            properties.append(wvc.Property(name=key, data_type=chunk_column_types[key]))
         else:
             properties.append(wvc.Property(name=key, data_type=wvc.DataType.TEXT))
             unknown_keys.add(key)
