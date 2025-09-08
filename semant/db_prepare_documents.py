@@ -54,7 +54,11 @@ def extract_chunks(doc_id, db_pages, line_confidence,
     os.makedirs(page_xml_dir, exist_ok=True)
 
     try:
-        zip_file_path = db_pages[0].page_xml_path
+        empty_pages = len([p for p in db_pages if not p.page_xml_path])
+        not_found = len([p for p in db_pages if p.page_xml_path == "not_found"])
+        good = len([p.page_xml_path for p in db_pages if p.page_xml_path and p.page_xml_path != "not_found"])
+        #print(doc_id, good, empty_pages, not_found)
+        zip_file_path = [p.page_xml_path for p in db_pages if p.page_xml_path and p.page_xml_path != "not_found"][0]
 
         if not zip_file_path or not os.path.exists(zip_file_path):
             logging.debug(f"Page XML file {zip_file_path} does not exist.")
@@ -119,6 +123,7 @@ def extract_chunks(doc_id, db_pages, line_confidence,
             chunk["id"] = str(uuid4())
             chunk["text"] = chunk["text"].strip()
     except Exception as e:
+        #logging.error(f"Error processing document {doc_id}: {e}")
         return None
     finally:
         # delete the temporary extracted files and the directory
@@ -163,7 +168,8 @@ class ProcessingWorker:
 
         with self.db_engine.connect() as db_connection:
             try:
-                result = db_connection.execute(select(self.db_model['meta_records']).where(self.db_model['meta_records'].c.id == doc_id))
+                result = db_connection.execute(select(self.db_model['meta_records']).where(self.db_model['meta_records'].c.id == doc_id,
+                                                                                          self.db_model['meta_records'].c.library == library_id))
             except Exception as e:
                 return function_result
             result = result.fetchall()
@@ -197,6 +203,7 @@ class ProcessingWorker:
                     return function_result
 
             except Exception as e:
+                logging.error(f"Error processing document {doc_id}: {e}")
                 return function_result
 
             function_result["chunks_extracted"] = True
@@ -302,7 +309,7 @@ def main():
                 initargs=(DATABASE_URL, args.line_confidence, args.min_chunk_chars, args.max_chunk_chars, args.output_chunk_dir)
               ) as pool:
         for result in tqdm(pool.imap(worker_process, doc_to_process), total=len(doc_to_process), desc="Processing documents"):
-            if counter % 10000 == 0:
+            if counter % 1000 == 0:
                 print(f"Failed documents: {failed_doc_count} / {counter}")
                 print(
                     f"page_count: {page_count}, image_count: {image_count}, mods_count: {mods_count}, page_xml_count: {page_xml_count}")
