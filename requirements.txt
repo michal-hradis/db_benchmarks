@@ -9,3 +9,7 @@ torch
 torchvision
 torchaudio
 datasets
+pero-ocr
+sqlalchemy
+psycopg2-binary
+
