@@ -69,8 +69,11 @@ def load_samples_randomly(input_dir: Path, load_limit: int, random_seed: int, la
         try:
             # Load JSONL records
             with open(jsonl_file, 'r', encoding='utf-8') as f:
-                records = [l.strip() for l in f][::subsample_factor]
-            records = [json.loads(line) for line in records if line]
+                records = [l.strip() for l in f]
+                records = [line for line in records if line]
+                all_records_count = len(records)
+                records = records[::subsample_factor]
+            records = [json.loads(line) for line in records]
             record_count = len(records)
             if languages is not None:
                 records = [record for record in records if record.get('language') in languages]
@@ -81,7 +84,7 @@ def load_samples_randomly(input_dir: Path, load_limit: int, random_seed: int, la
                 embeddings = np.load(npy_file)
 
                 # Verify that the number of records matches embeddings
-                if record_count != len(embeddings):
+                if all_records_count != len(embeddings):
                     logging.warning(f"Mismatch in {jsonl_file}: {len(records)} records vs {len(embeddings)} embeddings, skipping...")
                     continue
 
