@@ -81,7 +81,7 @@ def load_samples_randomly(input_dir: Path, load_limit: int, random_seed: int, la
                 embeddings = np.load(npy_file)
 
                 # Verify that the number of records matches embeddings
-                if len(records) != len(embeddings):
+                if record_count != len(embeddings):
                     logging.warning(f"Mismatch in {jsonl_file}: {len(records)} records vs {len(embeddings)} embeddings, skipping...")
                     continue
 
