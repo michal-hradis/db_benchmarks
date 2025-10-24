@@ -8,7 +8,6 @@ from sklearn.decomposition import PCA
 from typing import List, Dict, Tuple
 import sys
 import logging
-from tqdm import tqdm
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
@@ -28,6 +27,7 @@ def parse_args():
     parser.add_argument("--pca-dimensions", type=int, help="Number of PCA dimensions to reduce embeddings to before clustering. Default is no PCA.")
     parser.add_argument('--languages', nargs='*', help="Optional list of languages to filter texts by (e.g., 'en', 'de'). If not specified, all languages are included.")
     parser.add_argument('--record-subsampling', type=int, default=10, help="Subsample records by this factor when loading (e.g., 2 means take every second record). Default is 1 (no subsampling).")
+    parser.add_argument('--samples-per-cluster', type=int, default=1, help="Number of samples to select per cluster. Default is 1.")
     return parser.parse_args()
 
 def load_samples_randomly(input_dir: Path, load_limit: int, random_seed: int, languages: List[str] = None,
@@ -123,7 +123,10 @@ def apply_pca(embeddings: np.ndarray, n_components: int) -> np.ndarray:
     return reduced_embeddings
 
 
-def select_diverse_samples(records: List[Dict], embeddings: np.ndarray, num_samples: int, random_seed: int) -> List[Dict]:
+def select_diverse_samples(
+        records: List[Dict], embeddings: np.ndarray, num_samples: int, random_seed: int,
+        samples_per_cluster: int = 1
+        ) -> List[Dict]:
     """
     Use k-means clustering to select diverse samples.
     Selects one sample from each cluster (closest to centroid).
@@ -132,7 +135,7 @@ def select_diverse_samples(records: List[Dict], embeddings: np.ndarray, num_samp
         print(f"Warning: Requested {num_samples} samples but only {len(records)} available. Using all samples.")
         return records
 
-    print(f"Performing k-means clustering with k={num_samples}...")
+    logging.info(f"Performing k-means clustering with k={num_samples}...")
 
     # Perform k-means clustering
     kmeans = KMeans(n_clusters=num_samples, random_state=random_seed)
@@ -148,19 +151,25 @@ def select_diverse_samples(records: List[Dict], embeddings: np.ndarray, num_samp
         cluster_indices = np.where(cluster_mask)[0]
 
         if len(cluster_indices) == 0:
-            print(f"Warning: Cluster {cluster_id} is empty")
+            logging.warning(f"Warning: Cluster {cluster_id} is empty")
             continue
 
-        # Find the sample closest to the centroid
-        cluster_embeddings = embeddings[cluster_indices]
-        centroid = centroids[cluster_id]
-        distances = np.linalg.norm(cluster_embeddings - centroid, axis=1)
-        closest_idx_in_cluster = np.argmin(distances)
-        closest_idx = cluster_indices[closest_idx_in_cluster]
+        if samples_per_cluster > 1:
+            if len(cluster_indices) <= samples_per_cluster:
+                selected_indices.extend(cluster_indices.tolist())
+            else:
+                selected = random.sample(cluster_indices.tolist(), samples_per_cluster)
+                selected_indices.extend(selected)
+        else:
+            # Find the sample closest to the centroid
+            cluster_embeddings = embeddings[cluster_indices]
+            centroid = centroids[cluster_id]
+            distances = np.linalg.norm(cluster_embeddings - centroid, axis=1)
+            closest_idx_in_cluster = np.argmin(distances)
+            closest_idx = cluster_indices[closest_idx_in_cluster]
+            selected_indices.append(closest_idx)
 
-        selected_indices.append(closest_idx)
-
-    print(f"Selected {len(selected_indices)} diverse samples from {num_samples} clusters")
+    logging.info(f"Selected {len(selected_indices)} diverse samples from {num_samples} clusters")
 
     # Return the selected records
     selected_records = [records[idx] for idx in selected_indices]
@@ -204,7 +213,8 @@ def main():
             embeddings = apply_pca(embeddings, args.pca_dimensions)
 
     # Select diverse samples using k-means
-    selected_records = select_diverse_samples(records, embeddings, args.num_samples, args.random_seed)
+    selected_records = select_diverse_samples(
+        records, embeddings, args.num_samples, args.random_seed, args.samples_per_cluster)
 
     # Save results
     save_results(selected_records, output_file)
