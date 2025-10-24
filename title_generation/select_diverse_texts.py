@@ -113,11 +113,11 @@ def load_samples_randomly(input_dir: Path, load_limit: int, random_seed: int, la
 
 def apply_pca(embeddings: np.ndarray, n_components: int) -> np.ndarray:
     """Apply PCA to reduce dimensionality of embeddings."""
-    print(f"Applying PCA to reduce from {embeddings.shape[1]} to {n_components} dimensions...")
+    logging.info(f"Applying PCA to reduce from {embeddings.shape[1]} to {n_components} dimensions...")
     pca = PCA(n_components=n_components, random_state=42)
     reduced_embeddings = pca.fit_transform(embeddings)
     explained_variance = np.sum(pca.explained_variance_ratio_)
-    print(f"PCA completed. Explained variance: {explained_variance:.4f}")
+    logging.info(f"PCA completed. Explained variance: {explained_variance:.4f}")
     return reduced_embeddings
 
 
@@ -130,7 +130,7 @@ def select_diverse_samples(
     Selects one sample from each cluster (closest to centroid).
     """
     if num_samples > len(records):
-        print(f"Warning: Requested {num_samples} samples but only {len(records)} available. Using all samples.")
+        logging.warning(f"Requested {num_samples} samples but only {len(records)} available. Using all samples.")
         return records
 
     logging.info(f"Performing k-means clustering with k={num_samples}...")
@@ -183,7 +183,7 @@ def save_results(records: List[Dict], output_file: Path):
         for record in records:
             f.write(json.dumps(record, ensure_ascii=False) + '\n')
 
-    print(f"Saved {len(records)} diverse samples to {output_file}")
+    logging.info(f"Saved {len(records)} diverse samples to {output_file}")
 
 
 def main():
@@ -197,7 +197,7 @@ def main():
     output_file = Path(args.output_file)
 
     if not input_dir.exists():
-        print(f"Error: Input directory {input_dir} does not exist")
+        logging.error(f"Input directory {input_dir} does not exist")
         sys.exit(1)
 
     # Load samples randomly
@@ -206,9 +206,10 @@ def main():
     # Apply PCA if requested
     if args.pca_dimensions:
         if args.pca_dimensions >= embeddings.shape[1]:
-            print(f"Warning: PCA dimensions ({args.pca_dimensions}) >= embedding dimensions ({embeddings.shape[1]}), skipping PCA")
+            logging.warning(f"PCA dimensions ({args.pca_dimensions}) >= embedding dimensions ({embeddings.shape[1]}), skipping PCA")
         else:
             embeddings = apply_pca(embeddings, args.pca_dimensions)
+            logging.info(f"Embeddings shape after PCA: {embeddings.shape}")
 
     # Select diverse samples using k-means
     selected_records = select_diverse_samples(
@@ -217,7 +218,7 @@ def main():
     # Save results
     save_results(selected_records, output_file)
 
-    print("Done!")
+    logging.info("DONE. Diverse text selection completed successfully.")
 
 
 if __name__ == "__main__":
