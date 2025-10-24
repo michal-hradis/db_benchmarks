@@ -88,13 +88,8 @@ def load_samples_randomly(input_dir: Path, load_limit: int, random_seed: int, la
                     logging.warning(f"Mismatch in {jsonl_file}: {len(records)} records vs {len(embeddings)} embeddings, skipping...")
                     continue
 
-                # Add to our collection
-                remaining_capacity = load_limit - len(all_records)
-                if remaining_capacity < len(records):
-                    # Take only what we need
-                    indices = random.sample(range(len(records)), remaining_capacity)
-                    records = [records[i] for i in indices]
-                    embeddings = embeddings[indices]
+                embedding_indices = [record['vector_index'] for record in records]
+                embeddings = embeddings[embedding_indices]
 
                 all_records.extend(records)
                 all_embeddings.append(embeddings)
