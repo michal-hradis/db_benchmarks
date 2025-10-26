@@ -32,6 +32,7 @@ def parse_args():
     parser.add_argument('--model-prompt-combinations', type=int, default=2, help="Number of (model, prompt) combinations to create per each query-chunk pair.")
     parser.add_argument('--template', type=str, default="query: {query}\nretrieved text chunk: {chunk}\n",
                         help="Template for the user message, with placeholders {query} and {chunk}.")
+    parser.add_argument('--max-completion-tokens', type=int, default=3000, help="Max tokens for OpenAI completion.")
     return parser.parse_args()
 
 def load_prompts(prompt_dir):
@@ -61,7 +62,7 @@ def get_queries_from_chunk(chunk, query_fields):
             all_queries.extend(chunk[field])
     return all_queries
 
-def create_batch_request(custom_id, model, system_message, user_message):
+def create_batch_request(custom_id, model, system_message, user_message, max_completion_tokens):
     """Create an OpenAI batch API request."""
     return {
         "custom_id": custom_id,
@@ -72,12 +73,13 @@ def create_batch_request(custom_id, model, system_message, user_message):
             "messages": [
                 {"role": "system", "content": system_message},
                 {"role": "user", "content": user_message}
-            ]
+            ],
+            "max_completion_tokens": max_completion_tokens
         }
     }
 
 def generate_batch(chunk_file, query_fields, prompts, models, skip_fields,
-                   queries_per_chunk, model_prompt_combinations, template):
+                   queries_per_chunk, model_prompt_combinations, template, max_completion_tokens):
     """Generate batch requests for OpenAI API."""
     batch_requests = []
     chunks_processed = 0
@@ -131,7 +133,7 @@ def generate_batch(chunk_file, query_fields, prompts, models, skip_fields,
                     custom_id = f"{chunk_id}_q{query_idx}_p{combo_idx}"
 
                     # Create batch request
-                    request = create_batch_request(custom_id, model, system_message, user_message)
+                    request = create_batch_request(custom_id, model, system_message, user_message, max_completion_tokens)
                     batch_requests.append(request)
 
             chunks_processed += 1
@@ -183,7 +185,8 @@ def main():
         args.skip_if_true,
         args.queries_per_chunk,
         args.model_prompt_combinations,
-        args.template
+        args.template,
+        args.max_completion_tokens
     )
 
     # Save batch
