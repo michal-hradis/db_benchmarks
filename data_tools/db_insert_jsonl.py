@@ -89,6 +89,34 @@ def create_document_collection(client: WeaviateClient, keys: list[str], collecti
         properties=properties,
     )
 
+def create_userCollection_collection(client: WeaviateClient):
+    client.collections.create(
+        name="UserCollection",
+        vector_index_config=wvc.Configure.VectorIndex.hnsw(),
+        properties=[
+            wvc.Property(name="name",    data_type=wvc.DataType.TEXT),
+            wvc.Property(name="user_id", data_type=wvc.DataType.TEXT),
+        ]
+    )
+def create_tag_collection(client: WeaviateClient):
+    client.collections.create(name="Tag",
+        properties=[
+            {"name": "tag_name", "data_type": wvc.DataType.TEXT},
+            {"name": "tag_shorthand", "data_type": wvc.DataType.TEXT},
+            {"name": "tag_color", "data_type": wvc.DataType.TEXT},
+            {"name": "tag_pictogram", "data_type": wvc.DataType.TEXT},
+            {"name": "tag_definition", "data_type": wvc.DataType.TEXT},
+            {"name": "tag_examples", "data_type": wvc.DataType.TEXT_ARRAY},
+            {"name": "collection_name", "data_type": wvc.DataType.TEXT}
+        ],
+        references=[
+            wvc.ReferenceProperty(  # add reference to chunk collections created by user
+                name="userCollection",
+                target_collection="UserCollection",
+                cardinality="*"
+            ),
+        ]
+    )
 
 def create_chunk_schema(client: WeaviateClient, keys: list[str], chunk_collection_name: str, document_collection_name: str) -> None:
     properties = []
@@ -109,7 +137,27 @@ def create_chunk_schema(client: WeaviateClient, keys: list[str], chunk_collectio
                 name="document",
                 target_collection=document_collection_name,
                 cardinality="1"
-            )
+            ),
+                wvc.ReferenceProperty(  # add reference to chunk collections created by user
+                name="userCollection",
+                target_collection="UserCollection",
+                cardinality="*"
+            ),
+            wvc.ReferenceProperty(
+                name="automaticTag",
+                target_collection="Tag",
+                cardinality="1"
+            ),
+            wvc.ReferenceProperty(
+                name="positiveTag",
+                target_collection="Tag",
+                cardinality="1"
+            ),
+            wvc.ReferenceProperty(
+                name="negativeTag",
+                target_collection="Tag",
+                cardinality="1"
+            ),
         ]
     )
 
@@ -128,16 +176,25 @@ def extract_attributes_from_jsonl(source_dir: str, max_files=500) -> list[str]:
                 attributes.update(data.keys())
     return sorted(attributes)
 
-
 def parse_date(date_str: str) -> str:
+    date_str = date_str.replace(" ", "T")
+    date_str = date_str.replace("-", ".").strip()
+    # Y.M.D -> D.M.Y
+    # find year
+    year = re.findall(r"^\d{4}\.", date_str)[0]
+    just_year = year.replace('.','').strip()
+    # find day
+    day = re.findall(r"^\d{4}\.\d{1,2}\.\d{1,2}", date_str)[0]
+    just_day = re.findall(r"\.\d{1,2}$", day)[0].replace('.','')
+    just_month = re.findall(r"\.\d{1,2}\.", day)[0].replace('.','')
+    # swap
+    dmy_date = just_day + "." + just_month + '.' + just_year + date_str[len(day):]
+    date_str = dmy_date
     if re.match(r'\d{1,2}\.\d{1,2}\.\d{4}', date_str):
         date_match = re.search(r'\d{1,2}\.\d{1,2}\.\d{4}', date_str)
         date_str = date_match.group(0)
-        return datetime.datetime.strptime(date_str, '%d.%m.%Y').isoformat() + "+00:00"
-
-    logging.warning(f"Date format not recognized: {date_str}")
+        return datetime.datetime.strptime(date_str, '%d.%m.%Y').isoformat() + "+00:00", just_year
     return None
-
 
 def insert_documents(client: WeaviateClient, source_dir: str, document_collection: str) -> None:
     doc_col = client.collections.get(document_collection)
@@ -170,8 +227,9 @@ def insert_documents(client: WeaviateClient, source_dir: str, document_collectio
                 if "keywords" in data and isinstance(data["keywords"], str):
                     data["keywords"] = data["keywords"].split(';')
                 if "dateIssued" in data:
-                    data["dateIssued"] = parse_date(data["dateIssued"])
-                    data["yearIssued"] = datetime.datetime.fromisoformat(data["dateIssued"]).year
+                    parsed, year = parse_date(data["dateIssued"])
+                    data["dateIssued"] = parsed
+                    data["yearIssued"] = year
 
                 data = {k: v for k, v in data.items() if v is not None and k in document_column_types}
                 doc_col.data.insert(
@@ -237,6 +295,8 @@ def main():
         try:
             client.collections.delete(args.document_collection)
             client.collections.delete(args.chunk_collection)
+            client.collections.delete("UserCollection")
+            client.collections.delete("Tag")
         except Exception as e:
             print(f"Error deleting old collections: {e}")
 
@@ -254,6 +314,8 @@ def main():
 
     # Create schema
     create_document_collection(client, document_keys, args.document_collection)
+    create_userCollection_collection(client)
+    create_tag_collection(client)
     create_chunk_schema(client, chunk_keys, args.chunk_collection, args.document_collection)
 
     # Insert documents and chunks
