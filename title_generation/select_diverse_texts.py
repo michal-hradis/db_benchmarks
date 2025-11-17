@@ -22,13 +22,14 @@ def parse_args():
     parser.add_argument("--input-dir", required=True, help="Path to the input directory containing JSONL and .npy files.")
     parser.add_argument("--output-file", required=True, help="Path to save the selected diverse texts.")
     parser.add_argument("--load-limit", type=int, default=100000, help="Maximum number of samples to load for diversity selection.")
-    parser.add_argument("--num-samples", type=int, default=1000, help="Number of diverse samples to select.")
+    parser.add_argument("--k-clusters", type=int, default=1000, help="Number of clusters to create.")
+    parser.add_argument('--samples-per-cluster', type=int, default=1, help="Number of samples to select per cluster. Default is 1.")
     parser.add_argument("--random-seed", type=int, default=42, help="Random seed for reproducibility.")
     parser.add_argument("--pca-dimensions", type=int, help="Number of PCA dimensions to reduce embeddings to before clustering. Default is no PCA.")
     parser.add_argument('--languages', nargs='*', help="Optional list of languages to filter texts by (e.g., 'en', 'de'). If not specified, all languages are included.")
     parser.add_argument('--record-subsampling', type=int, default=10, help="Subsample records by this factor when loading (e.g., 2 means take every second record). Default is 1 (no subsampling).")
-    parser.add_argument('--samples-per-cluster', type=int, default=1, help="Number of samples to select per cluster. Default is 1.")
     return parser.parse_args()
+
 
 def load_samples_randomly(input_dir: Path, load_limit: int, random_seed: int, languages: List[str] = None,
                           subsample_factor: int = 1) -> Tuple[List[Dict], np.ndarray]:
@@ -122,28 +123,32 @@ def apply_pca(embeddings: np.ndarray, n_components: int) -> np.ndarray:
 
 
 def select_diverse_samples(
-        records: List[Dict], embeddings: np.ndarray, num_samples: int, random_seed: int,
-        samples_per_cluster: int = 1
-        ) -> List[Dict]:
+    records: List[Dict],
+    embeddings: np.ndarray,
+    k_clusters: int,
+    random_seed: int,
+    samples_per_cluster: int = 1
+) -> List[Dict]:
     """
     Use k-means clustering to select diverse samples.
-    Selects one sample from each cluster (closest to centroid).
+    Samples k_clusters * samples_per_cluster diverse samples from the dataset.
     """
-    if num_samples > len(records):
-        logging.warning(f"Requested {num_samples} samples but only {len(records)} available. Using all samples.")
+    n_samples_to_select = k_clusters * samples_per_cluster
+
+    if n_samples_to_select > len(records):
+        logging.warning(f"Requested {n_samples_to_select} samples but only {len(records)} available. Using all samples.")
         return records
 
-    logging.info(f"Performing k-means clustering with k={num_samples}...")
+    logging.info(f"Performing k-means clustering with k={k_clusters}...")
 
     # Perform k-means clustering
-    kmeans = KMeans(n_clusters=num_samples, random_state=random_seed)
+    kmeans = KMeans(n_clusters=k_clusters, random_state=random_seed)
     cluster_labels = kmeans.fit_predict(embeddings)
     centroids = kmeans.cluster_centers_
 
-    # Select one sample from each cluster (closest to centroid)
     selected_indices = []
 
-    for cluster_id in range(num_samples):
+    for cluster_id in range(k_clusters):
         # Find all samples in this cluster
         cluster_mask = cluster_labels == cluster_id
         cluster_indices = np.where(cluster_mask)[0]
@@ -154,10 +159,10 @@ def select_diverse_samples(
 
         if samples_per_cluster > 1:
             if len(cluster_indices) <= samples_per_cluster:
-                selected_indices.extend(cluster_indices.tolist())
+                selected = cluster_indices.tolist()
             else:
                 selected = random.sample(cluster_indices.tolist(), samples_per_cluster)
-                selected_indices.extend(selected)
+            selected_indices.extend([(idx, cluster_id) for idx in selected])
         else:
             # Find the sample closest to the centroid
             cluster_embeddings = embeddings[cluster_indices]
@@ -165,12 +170,15 @@ def select_diverse_samples(
             distances = np.linalg.norm(cluster_embeddings - centroid, axis=1)
             closest_idx_in_cluster = np.argmin(distances)
             closest_idx = cluster_indices[closest_idx_in_cluster]
-            selected_indices.append(closest_idx)
+            selected_indices.append((closest_idx, cluster_id))
 
-    logging.info(f"Selected {len(selected_indices)} diverse samples from {num_samples} clusters")
+    logging.info(f"Selected {len(selected_indices)} diverse samples from {k_clusters} clusters")
 
     # Return the selected records
-    selected_records = [records[idx] for idx in selected_indices]
+    selected_records = []
+    for idx, cluster_id in selected_indices:
+        records[idx]["cluster_id"] = int(cluster_id)
+        selected_records.append(records[idx])
 
     return selected_records
 
@@ -201,7 +209,13 @@ def main():
         sys.exit(1)
 
     # Load samples randomly
-    records, embeddings = load_samples_randomly(input_dir, args.load_limit, args.random_seed, args.languages)
+    records, embeddings = load_samples_randomly(
+        input_dir=input_dir,
+        load_limit=args.load_limit,
+        random_seed=args.random_seed,
+        languages=args.languages,
+        subsample_factor=args.record_subsampling,
+    )
 
     # Apply PCA if requested
     if args.pca_dimensions:
@@ -213,7 +227,12 @@ def main():
 
     # Select diverse samples using k-means
     selected_records = select_diverse_samples(
-        records, embeddings, args.num_samples, args.random_seed, args.samples_per_cluster)
+        records=records,
+        embeddings=embeddings,
+        k_clusters=args.k_clusters,
+        random_seed=args.random_seed,
+        samples_per_cluster=args.samples_per_cluster,
+    )
 
     # Save results
     save_results(selected_records, output_file)
