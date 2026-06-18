@@ -28,6 +28,7 @@ def parse_args():
     parser.add_argument("--pca-dimensions", type=int, help="Number of PCA dimensions to reduce embeddings to before clustering. Default is no PCA.")
     parser.add_argument('--languages', nargs='*', help="Optional list of languages to filter texts by (e.g., 'en', 'de'). If not specified, all languages are included.")
     parser.add_argument('--record-subsampling', type=int, default=10, help="Subsample records by this factor when loading (e.g., 2 means take every second record). Default is 1 (no subsampling).")
+    parser.add_argument('--prefer-closest', action='store_true', help="When selecting multiple samples per cluster, prefer the closest samples to the centroid instead of random selection.")
     return parser.parse_args()
 
 
@@ -127,7 +128,8 @@ def select_diverse_samples(
     embeddings: np.ndarray,
     k_clusters: int,
     random_seed: int,
-    samples_per_cluster: int = 1
+    samples_per_cluster: int = 1,
+    prefer_closest: bool = False,
 ) -> List[Dict]:
     """
     Use k-means clustering to select diverse samples.
@@ -157,16 +159,35 @@ def select_diverse_samples(
             logging.warning(f"Warning: Cluster {cluster_id} is empty")
             continue
 
+        cluster_embeddings = embeddings[cluster_indices]
+        centroid = centroids[cluster_id]
+
         if samples_per_cluster > 1:
-            if len(cluster_indices) <= samples_per_cluster:
-                selected = cluster_indices.tolist()
+            if prefer_closest:
+                logging.info(f"Selecting {samples_per_cluster} closest samples to centroid in cluster {cluster_id}")
+                round_decimals = 3
+                rounded = np.round(cluster_embeddings, round_decimals)
+
+                # Now unique on rounded rows
+                unique_embeddings_rounded, unique_local_indices = np.unique(rounded, axis=0, return_index=True)
+                unique_global_indices = cluster_indices[unique_local_indices]
+
+                # Compute distances using the ORIGINAL embeddings (not the rounded ones)
+                unique_embeddings = cluster_embeddings[unique_local_indices]
+                unique_distances = np.linalg.norm(unique_embeddings - centroid, axis=1)
+                sorted_unique = np.argsort(unique_distances)
+                n_take = min(samples_per_cluster, len(sorted_unique))
+                chosen_global = unique_global_indices[sorted_unique[:n_take]]
             else:
-                selected = random.sample(cluster_indices.tolist(), samples_per_cluster)
-            selected_indices.extend([(idx, cluster_id) for idx in selected])
+                logging.info(f"Selecting {samples_per_cluster} random samples from cluster {cluster_id} randomly.")
+                if len(cluster_indices) <= samples_per_cluster:
+                    chosen_global = cluster_indices
+                else:
+                    chosen_global = random.sample(cluster_indices.tolist(), samples_per_cluster)
+
+            selected_indices.extend([(idx, cluster_id) for idx in chosen_global])
         else:
             # Find the sample closest to the centroid
-            cluster_embeddings = embeddings[cluster_indices]
-            centroid = centroids[cluster_id]
             distances = np.linalg.norm(cluster_embeddings - centroid, axis=1)
             closest_idx_in_cluster = np.argmin(distances)
             closest_idx = cluster_indices[closest_idx_in_cluster]
@@ -232,6 +253,7 @@ def main():
         k_clusters=args.k_clusters,
         random_seed=args.random_seed,
         samples_per_cluster=args.samples_per_cluster,
+        prefer_closest=args.prefer_closest,
     )
 
     # Save results
